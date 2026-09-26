@@ -1,50 +1,132 @@
 import React, { useState, useRef } from 'react';
-import { Mail, Github, Linkedin, GraduationCap, Code2, Camera, Upload, Link, X, RotateCcw, Check } from 'lucide-react';
-import { AUTHOR_RISHU } from '../data/articles';
+import {
+  Mail,
+  Github,
+  Linkedin,
+  Twitter,
+  Globe,
+  Instagram,
+  Youtube,
+  GraduationCap,
+  Code2,
+  Camera,
+  Upload,
+  Link,
+  X,
+  RotateCcw,
+  Check,
+  Edit3,
+  MapPin,
+  Lock,
+} from 'lucide-react';
+import { AuthorProfile } from '../types/blog';
+import { DEFAULT_AUTHOR_PROFILE } from '../data/articles';
+import { EditProfileModal } from './EditProfileModal';
+
+function compressAvatar(file: File, size = 400, quality = 0.85): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const minDim = Math.min(img.width, img.height);
+          const sx = (img.width - minDim) / 2;
+          const sy = (img.height - minDim) / 2;
+          ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.onerror = () => resolve(e.target?.result as string);
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 interface AboutSectionProps {
   onContactClick: () => void;
+  profile?: AuthorProfile;
+  onUpdateProfile?: (newProfile: AuthorProfile) => void;
   avatarUrl?: string;
   onAvatarChange?: (newAvatar: string) => void;
+  isAdminLoggedIn?: boolean;
+  onRequireAdminAuth?: () => void;
 }
 
 export const AboutSection: React.FC<AboutSectionProps> = ({
   onContactClick,
+  profile: propProfile,
+  onUpdateProfile,
   avatarUrl,
   onAvatarChange,
+  isAdminLoggedIn = false,
+  onRequireAdminAuth,
 }) => {
-  const [avatar, setAvatar] = useState<string>(() => {
-    return avatarUrl || localStorage.getItem('rishu_avatar') || AUTHOR_RISHU.avatar;
-  });
+  // Use passed profile or fallback to defaults
+  const profile = propProfile || DEFAULT_AUTHOR_PROFILE;
 
+  // Photo modal states
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [photoInputMode, setPhotoInputMode] = useState<'upload' | 'url'>('upload');
   const [tempPhotoUrl, setTempPhotoUrl] = useState<string>('');
   const [urlInput, setUrlInput] = useState<string>('');
   const [isSavedNotice, setIsSavedNotice] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Edit details modal state
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const currentAvatar = avatarUrl || profile.avatar;
+
   const handleOpenPhotoModal = () => {
-    setTempPhotoUrl(avatar);
+    if (!isAdminLoggedIn && onRequireAdminAuth) {
+      onRequireAdminAuth();
+      return;
+    }
+    setTempPhotoUrl(currentAvatar);
     setUrlInput('');
     setIsPhotoModalOpen(true);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOpenEditProfile = () => {
+    if (!isAdminLoggedIn && onRequireAdminAuth) {
+      onRequireAdminAuth();
+      return;
+    }
+    setIsEditProfileOpen(true);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
         alert('Please select a valid image file (JPG, PNG, WEBP).');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setTempPhotoUrl(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+      setIsUploading(true);
+      try {
+        const compressed = await compressAvatar(file, 400, 0.85);
+        setTempPhotoUrl(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setTempPhotoUrl(event.target.result as string);
+          }
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -55,17 +137,16 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
   };
 
   const handleResetToDefault = () => {
-    setTempPhotoUrl(AUTHOR_RISHU.avatar);
+    setTempPhotoUrl(DEFAULT_AUTHOR_PROFILE.avatar);
   };
 
   const handleSavePhoto = () => {
-    const finalPhoto = tempPhotoUrl || AUTHOR_RISHU.avatar;
-    setAvatar(finalPhoto);
-    try {
-      localStorage.setItem('rishu_avatar', finalPhoto);
-    } catch {}
+    const finalPhoto = tempPhotoUrl || DEFAULT_AUTHOR_PROFILE.avatar;
     if (onAvatarChange) {
       onAvatarChange(finalPhoto);
+    }
+    if (onUpdateProfile) {
+      onUpdateProfile({ ...profile, avatar: finalPhoto });
     }
     setIsSavedNotice(true);
     setTimeout(() => {
@@ -74,38 +155,14 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
     }, 800);
   };
 
-  const milestones = [
-    {
-      year: 'Year 3 (Current)',
-      title: 'AI/ML Specialization & Cloud Architecture',
-      desc: 'Diving deep into PyTorch transformer models, computer vision pipelines, LLM fine-tuning, and scalable microservices on Docker & Cloud Run.',
-    },
-    {
-      year: 'Year 2',
-      title: 'Data Structures, Java OOP & Web Engineering',
-      desc: 'Mastered memory graphs, algorithmic complexity, Java package structures, relational databases, and modern full-stack web development.',
-    },
-    {
-      year: 'Year 1',
-      title: 'Foundations of Computer Science & C',
-      desc: 'Built low-level systems intuition through C memory pointers, CPU architecture, discrete mathematics, and boolean logic.',
-    },
-  ];
-
-  const skillCategories = [
-    {
-      category: 'Languages',
-      skills: ['Python', 'C / C++', 'Java', 'TypeScript', 'SQL', 'Bash'],
-    },
-    {
-      category: 'AI & Data Science',
-      skills: ['PyTorch', 'Scikit-Learn', 'NumPy', 'Pandas', 'Transformers', 'OpenCV'],
-    },
-    {
-      category: 'Web & Infrastructure',
-      skills: ['React', 'Node.js', 'Express', 'Tailwind CSS', 'Docker', 'Git & GitHub'],
-    },
-  ];
+  const handleSaveFullProfile = (updated: AuthorProfile) => {
+    if (onUpdateProfile) {
+      onUpdateProfile(updated);
+    }
+    if (onAvatarChange && updated.avatar !== currentAvatar) {
+      onAvatarChange(updated.avatar);
+    }
+  };
 
   return (
     <section id="about-section" className="py-16 md:py-24 border-t border-zinc-200/80 dark:border-zinc-800/80">
@@ -113,130 +170,244 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* Left Column: Profile Card */}
           <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-6">
-            <div className="p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm text-center">
-              {/* Profile Avatar with Change Photo Trigger */}
-              <div className="relative w-36 h-36 mx-auto mb-5 group">
+            <div className="p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm text-center relative">
+              {/* Profile Avatar with Change Photo Trigger (if Admin) */}
+              <div className="relative w-36 h-36 mx-auto mb-4 group">
                 <div className="w-full h-full rounded-2xl overflow-hidden border-2 border-indigo-500/30 shadow-md bg-zinc-950">
                   <img
-                    src={avatar}
-                    alt={AUTHOR_RISHU.name}
+                    src={currentAvatar}
+                    alt={profile.name}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 </div>
 
-                {/* Hover Overlay */}
-                <button
-                  type="button"
-                  onClick={handleOpenPhotoModal}
-                  title="Click to change photo"
-                  className="absolute inset-0 rounded-2xl bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity duration-200 cursor-pointer"
-                >
-                  <Camera className="w-6 h-6 mb-1 text-white" />
-                  <span className="text-[11px] font-semibold text-white tracking-wide">Change Photo</span>
-                </button>
+                {/* Hover Overlay only shown when Admin is logged in */}
+                {isAdminLoggedIn && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleOpenPhotoModal}
+                      title="Click to change photo"
+                      className="absolute inset-0 rounded-2xl bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity duration-200 cursor-pointer"
+                    >
+                      <Camera className="w-6 h-6 mb-1 text-white" />
+                      <span className="text-[11px] font-semibold text-white tracking-wide">Change Photo</span>
+                    </button>
 
-                {/* Permanent Corner Camera Button Badge */}
-                <button
-                  type="button"
-                  onClick={handleOpenPhotoModal}
-                  title="Change profile photo"
-                  className="absolute -bottom-1.5 -right-1.5 p-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-md active:scale-95 transition-all cursor-pointer border-2 border-white dark:border-zinc-900"
-                  aria-label="Change profile photo"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenPhotoModal}
+                      title="Change profile photo"
+                      className="absolute -bottom-1.5 -right-1.5 p-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-md active:scale-95 transition-all cursor-pointer border-2 border-white dark:border-zinc-900"
+                      aria-label="Change profile photo"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
               </div>
 
-              {/* Direct "Change Photo" action link */}
-              <button
-                type="button"
-                onClick={handleOpenPhotoModal}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline mb-2 cursor-pointer"
-              >
-                <Camera className="w-3.5 h-3.5" />
-                <span>Change Photo</span>
-              </button>
+              {/* Developer quick action buttons: Change Photo & Edit Profile (Only when logged in as Admin) */}
+              {isAdminLoggedIn && (
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <button
+                    type="button"
+                    onClick={handleOpenPhotoModal}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Photo</span>
+                  </button>
+                  <span className="text-zinc-300 dark:text-zinc-700">·</span>
+                  <button
+                    type="button"
+                    onClick={handleOpenEditProfile}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit Profile & Socials</span>
+                  </button>
+                </div>
+              )}
 
               <h2 className="text-2xl font-bold text-zinc-900 dark:text-white font-heading">
-                {AUTHOR_RISHU.name}
+                {profile.name}
               </h2>
-              <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 mt-1">
-                {AUTHOR_RISHU.role}
+
+              <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mt-1">
+                {profile.role}
               </p>
+
+              {profile.location && (
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 flex items-center justify-center gap-1">
+                  <MapPin className="w-3 h-3 text-zinc-400" />
+                  <span>{profile.location}</span>
+                </p>
+              )}
 
               <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-4 leading-relaxed">
-                Passionate software developer and undergraduate researcher exploring the intersection of deep learning algorithms and production software systems.
+                {profile.shortBio}
               </p>
 
-              <div className="pt-5 mt-5 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-center gap-3">
-                <a
-                  href="mailto:mishra939rishu@gmail.com"
-                  className="p-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                  title="Email Rishu"
-                >
-                  <Mail className="w-4 h-4" />
-                </a>
-                <a
-                  href="https://github.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="p-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                  title="GitHub Profile"
-                >
-                  <Github className="w-4 h-4" />
-                </a>
-                <a
-                  href="https://linkedin.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="p-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                  title="LinkedIn Profile"
-                >
-                  <Linkedin className="w-4 h-4" />
-                </a>
+              {/* Social Media Links */}
+              <div className="pt-5 mt-5 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center justify-center gap-2">
+                {profile.socials.email && (
+                  <a
+                    href={`mailto:${profile.socials.email}`}
+                    className="p-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    title={`Email ${profile.name}`}
+                  >
+                    <Mail className="w-4 h-4" />
+                  </a>
+                )}
+
+                {profile.socials.github && (
+                  <a
+                    href={profile.socials.github}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    title="GitHub Profile"
+                  >
+                    <Github className="w-4 h-4" />
+                  </a>
+                )}
+
+                {profile.socials.linkedin && (
+                  <a
+                    href={profile.socials.linkedin}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-blue-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    title="LinkedIn Profile"
+                  >
+                    <Linkedin className="w-4 h-4" />
+                  </a>
+                )}
+
+                {profile.socials.twitter && (
+                  <a
+                    href={profile.socials.twitter}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-sky-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    title="Twitter / X Profile"
+                  >
+                    <Twitter className="w-4 h-4" />
+                  </a>
+                )}
+
+                {profile.socials.website && (
+                  <a
+                    href={profile.socials.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-emerald-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    title="Personal Website"
+                  >
+                    <Globe className="w-4 h-4" />
+                  </a>
+                )}
+
+                {profile.socials.instagram && (
+                  <a
+                    href={profile.socials.instagram}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-pink-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    title="Instagram Profile"
+                  >
+                    <Instagram className="w-4 h-4" />
+                  </a>
+                )}
+
+                {profile.socials.youtube && (
+                  <a
+                    href={profile.socials.youtube}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    title="YouTube Channel"
+                  >
+                    <Youtube className="w-4 h-4" />
+                  </a>
+                )}
               </div>
 
-              <button
-                onClick={onContactClick}
-                className="w-full mt-4 py-2.5 px-4 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl transition-all shadow-sm cursor-pointer"
-              >
-                Get in Touch
-              </button>
+              {/* Action buttons */}
+              <div className="space-y-2 mt-4">
+                {isAdminLoggedIn && (
+                  <button
+                    onClick={handleOpenEditProfile}
+                    className="w-full py-2.5 px-4 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Customize Profile Details</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={onContactClick}
+                  className="w-full py-2.5 px-4 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl transition-all shadow-sm cursor-pointer"
+                >
+                  Get in Touch
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Right Column: Bio, Journey & Skills */}
           <div className="lg:col-span-8 space-y-12">
             <div>
-              <span className="text-xs font-semibold tracking-wider uppercase text-indigo-600 dark:text-indigo-400">
-                About the Author
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold tracking-wider uppercase text-indigo-600 dark:text-indigo-400">
+                  About the Author
+                </span>
+                {isAdminLoggedIn && (
+                  <button
+                    type="button"
+                    onClick={handleOpenEditProfile}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit Bio</span>
+                  </button>
+                )}
+              </div>
+
               <h3 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white font-heading mt-1">
-                Engineering with Curiosity & First Principles
+                {profile.heading || 'Engineering with Curiosity & First Principles'}
               </h3>
+
               <div className="mt-4 space-y-4 text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                <p>
-                  Hey there! I'm <strong>Rishu Mishra</strong>, currently in my 3rd year pursuing a Bachelor of Technology in Computer Science and Engineering with a specialization in Artificial Intelligence and Machine Learning.
-                </p>
-                <p>
-                  My philosophy around software engineering is simple: <em>to truly understand something, you must build it from scratch</em>. Whether that means allocating heap memory byte-by-byte in C, writing a matrix backpropagation routine in NumPy, or architecting a reactive single-page application in React, I believe in demystifying the black box.
-                </p>
-                <p>
-                  This blog serves as my digital workshop—a place where I publish detailed notes, semester build logs, algorithmic breakdowns, and tutorials to help fellow students and developers navigate the rapidly evolving world of tech.
-                </p>
+                {profile.paragraphs.map((p, idx) => (
+                  <p key={idx}>{p}</p>
+                ))}
               </div>
             </div>
 
             {/* Academic Journey Timeline */}
             <div>
-              <h4 className="text-xl font-bold text-zinc-900 dark:text-white font-heading mb-6 flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-indigo-500" />
-                <span>Academic & Engineering Journey</span>
-              </h4>
+              <div className="flex items-center justify-between mb-6">
+                <h4 className="text-xl font-bold text-zinc-900 dark:text-white font-heading flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-indigo-500" />
+                  <span>Academic & Engineering Journey</span>
+                </h4>
+                {isAdminLoggedIn && (
+                  <button
+                    type="button"
+                    onClick={handleOpenEditProfile}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    <span>Edit Journey</span>
+                  </button>
+                )}
+              </div>
 
               <div className="space-y-6 border-l-2 border-zinc-200 dark:border-zinc-800 pl-6 ml-3">
-                {milestones.map((m, idx) => (
+                {profile.milestones.map((m, idx) => (
                   <div key={idx} className="relative group">
                     <div className="absolute -left-[31px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-indigo-600 bg-white dark:bg-zinc-950" />
                     <span className="text-xs font-mono font-semibold text-indigo-600 dark:text-indigo-400">
@@ -255,13 +426,25 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
 
             {/* Technical Tooling & Stack */}
             <div>
-              <h4 className="text-xl font-bold text-zinc-900 dark:text-white font-heading mb-6 flex items-center gap-2">
-                <Code2 className="w-5 h-5 text-indigo-500" />
-                <span>Technical Stack & Tools</span>
-              </h4>
+              <div className="flex items-center justify-between mb-6">
+                <h4 className="text-xl font-bold text-zinc-900 dark:text-white font-heading flex items-center gap-2">
+                  <Code2 className="w-5 h-5 text-indigo-500" />
+                  <span>Technical Stack & Tools</span>
+                </h4>
+                {isAdminLoggedIn && (
+                  <button
+                    type="button"
+                    onClick={handleOpenEditProfile}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    <span>Edit Skills</span>
+                  </button>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {skillCategories.map((cat, idx) => (
+                {profile.skills.map((cat, idx) => (
                   <div
                     key={idx}
                     className="p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60"
@@ -287,8 +470,8 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
         </div>
       </div>
 
-      {/* Change Photo Modal */}
-      {isPhotoModalOpen && (
+      {/* Change Photo Modal (Admin Only) */}
+      {isPhotoModalOpen && isAdminLoggedIn && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
           <div
             className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
@@ -316,7 +499,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
               <div className="flex flex-col items-center justify-center">
                 <div className="relative w-28 h-28 rounded-2xl overflow-hidden border-2 border-indigo-500/40 shadow-lg bg-zinc-950 mb-2">
                   <img
-                    src={tempPhotoUrl || avatar}
+                    src={tempPhotoUrl || currentAvatar}
                     alt="Preview"
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover"
@@ -365,17 +548,20 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                     onChange={handleFileUpload}
                     className="hidden"
                     id="profile-photo-upload"
+                    disabled={isUploading}
                   />
                   <label
                     htmlFor="profile-photo-upload"
-                    className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-2xl cursor-pointer bg-zinc-50/50 dark:bg-zinc-800/30 transition-colors text-center"
+                    className={`flex flex-col items-center justify-center p-5 border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-2xl cursor-pointer bg-zinc-50/50 dark:bg-zinc-800/30 transition-colors text-center ${
+                      isUploading ? 'opacity-60 pointer-events-none' : ''
+                    }`}
                   >
                     <Upload className="w-7 h-7 text-indigo-500 mb-2" />
                     <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                      Choose an image from your computer
+                      {isUploading ? 'Optimizing photo...' : 'Choose an image from your computer'}
                     </span>
                     <span className="text-[11px] text-zinc-500 mt-0.5">
-                      Supports JPG, PNG, WEBP
+                      Auto-compressed & resized (JPG, PNG, WEBP)
                     </span>
                   </label>
                 </div>
@@ -401,7 +587,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                     </button>
                   </div>
                   <p className="text-[11px] text-zinc-500">
-                    Paste any public image link (e.g., GitHub profile picture, Unsplash, etc.)
+                    Paste any public image link (e.g. GitHub avatar, Unsplash portrait)
                   </p>
                 </div>
               )}
@@ -411,7 +597,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                 <button
                   type="button"
                   onClick={handleResetToDefault}
-                  className="flex items-center gap-1 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                  className="flex items-center gap-1 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Reset to original portrait</span>
@@ -445,6 +631,16 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Developer Profile Modal (Admin Only) */}
+      {isEditProfileOpen && isAdminLoggedIn && (
+        <EditProfileModal
+          isOpen={isEditProfileOpen}
+          onClose={() => setIsEditProfileOpen(false)}
+          profile={profile}
+          onSave={handleSaveFullProfile}
+        />
       )}
     </section>
   );

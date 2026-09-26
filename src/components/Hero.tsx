@@ -1,14 +1,17 @@
 import React from 'react';
 import { ArrowRight, User, Sparkles } from 'lucide-react';
 import { CodePlayground } from './CodePlayground';
+import { AuthorProfile } from '../types/blog';
 
 interface HeroProps {
   onExploreArticles: () => void;
   onAboutMe: () => void;
   articleCount?: number;
+  profile?: AuthorProfile;
 }
 
-export const Hero: React.FC<HeroProps> = ({ onExploreArticles, onAboutMe, articleCount = 0 }) => {
+export const Hero: React.FC<HeroProps> = ({ onExploreArticles, onAboutMe, articleCount = 0, profile }) => {
+  const roleText = profile?.role ? `${profile.role} · Technical Notes & Builds` : '3rd-Year B.Tech CSE (AI/ML) · Technical Notes & Builds';
   return (
     <section className="relative overflow-hidden py-12 md:py-20 border-b border-zinc-200/80 dark:border-zinc-800/80 bg-linear-to-b from-indigo-50/30 via-transparent to-transparent dark:from-indigo-950/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -17,7 +20,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreArticles, onAboutMe, articl
           <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
             <div className="inline-flex items-center gap-2 text-xs font-medium text-indigo-700 dark:text-indigo-400">
               <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>3rd-Year B.Tech CSE (AI/ML) · Technical Notes & Builds</span>
+              <span>{roleText}</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-zinc-900 dark:text-white font-heading leading-tight" style={{ textWrap: 'balance' }}>

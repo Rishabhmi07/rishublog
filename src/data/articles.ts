@@ -1,9 +1,63 @@
-import { Article, CategoryItem } from '../types/blog';
+import { Article, CategoryItem, AuthorProfile } from '../types/blog';
 
-export const AUTHOR_RISHU = {
+export const DEFAULT_AUTHOR_PROFILE: AuthorProfile = {
   name: 'Rishu Mishra',
   role: '3rd-Year B.Tech CSE (AI/ML) Student',
   avatar: '/src/assets/images/avatar_rishu_1790415025306.jpg',
+  location: 'India · B.Tech CSE (AI/ML)',
+  shortBio: 'Passionate software developer and undergraduate researcher exploring the intersection of deep learning algorithms and production software systems.',
+  heading: 'Engineering with Curiosity & First Principles',
+  paragraphs: [
+    "Hey there! I'm Rishu Mishra, currently in my 3rd year pursuing a Bachelor of Technology in Computer Science and Engineering with a specialization in Artificial Intelligence and Machine Learning.",
+    "My philosophy around software engineering is simple: to truly understand something, you must build it from scratch. Whether that means allocating heap memory byte-by-byte in C, writing a matrix backpropagation routine in NumPy, or architecting a reactive single-page application in React, I believe in demystifying the black box.",
+    "This blog serves as my digital workshop—a place where I publish detailed notes, semester build logs, algorithmic breakdowns, and tutorials to help fellow students and developers navigate the rapidly evolving world of tech."
+  ],
+  socials: {
+    email: 'mishra939rishu@gmail.com',
+    github: 'https://github.com',
+    linkedin: 'https://linkedin.com',
+    twitter: '',
+    website: '',
+    instagram: '',
+    youtube: '',
+  },
+  milestones: [
+    {
+      year: 'Year 3 (Current)',
+      title: 'AI/ML Specialization & Cloud Architecture',
+      desc: 'Diving deep into PyTorch transformer models, computer vision pipelines, LLM fine-tuning, and scalable microservices on Docker & Cloud Run.',
+    },
+    {
+      year: 'Year 2',
+      title: 'Data Structures, Java OOP & Web Engineering',
+      desc: 'Mastered memory graphs, algorithmic complexity, Java package structures, relational databases, and modern full-stack web development.',
+    },
+    {
+      year: 'Year 1',
+      title: 'Foundations of Computer Science & C',
+      desc: 'Built low-level systems intuition through C memory pointers, CPU architecture, discrete mathematics, and boolean logic.',
+    },
+  ],
+  skills: [
+    {
+      category: 'Languages',
+      skills: ['Python', 'C / C++', 'Java', 'TypeScript', 'SQL', 'Bash'],
+    },
+    {
+      category: 'AI & Data Science',
+      skills: ['PyTorch', 'Scikit-Learn', 'NumPy', 'Pandas', 'Transformers', 'OpenCV'],
+    },
+    {
+      category: 'Web & Infrastructure',
+      skills: ['React', 'Node.js', 'Express', 'Tailwind CSS', 'Docker', 'Git & GitHub'],
+    },
+  ],
+};
+
+export const AUTHOR_RISHU = {
+  name: DEFAULT_AUTHOR_PROFILE.name,
+  role: DEFAULT_AUTHOR_PROFILE.role,
+  avatar: DEFAULT_AUTHOR_PROFILE.avatar,
 };
 
 export const INITIAL_CATEGORIES: CategoryItem[] = [

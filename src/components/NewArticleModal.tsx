@@ -1,7 +1,38 @@
 import React, { useState, useRef } from 'react';
-import { X, Sparkles, Image as ImageIcon, Upload, Link, Check, Trash2 } from 'lucide-react';
+import { X, Sparkles, Image as ImageIcon, Upload, Link, Check, Trash2, Loader2 } from 'lucide-react';
 import { Article } from '../types/blog';
 import { AUTHOR_RISHU, PRESET_COVER_IMAGES } from '../data/articles';
+
+// Client-side lightweight image compressor to keep uploads snappy and within browser storage limits
+function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.onerror = () => resolve(e.target?.result as string);
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 interface NewArticleModalProps {
   isOpen: boolean;
@@ -25,6 +56,8 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
   const [imageUrlInput, setImageUrlInput] = useState<string>('');
   const [imageFileName, setImageFileName] = useState<string>('');
   const [isFeatured, setIsFeatured] = useState<boolean>(false);
+  const [isCompressing, setIsCompressing] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Content state
   const [intro, setIntro] = useState('');
@@ -38,8 +71,8 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Handle local file upload (base64 Data URL)
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle local file upload with fast compression
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
@@ -47,13 +80,22 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
         return;
       }
       setImageFileName(file.name);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setCoverImage(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+      setIsCompressing(true);
+      try {
+        const compressedBase64 = await compressImage(file, 1200, 0.85);
+        setCoverImage(compressedBase64);
+      } catch {
+        // Fallback to raw data url
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setCoverImage(event.target.result as string);
+          }
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setIsCompressing(false);
+      }
     }
   };
 
@@ -80,7 +122,9 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !shortDescription.trim()) return;
+    if (!title.trim() || !shortDescription.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
 
     // Fallback image if user didn't select one
     const finalImage = coverImage.trim() || PRESET_COVER_IMAGES[0].url;
@@ -128,6 +172,7 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
     };
 
     onPublish(newArticle);
+    setIsSubmitting(false);
     onClose();
   };
 
@@ -302,18 +347,32 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
                   onChange={handleFileUpload}
                   className="hidden"
                   id="article-file-upload"
+                  disabled={isCompressing}
                 />
                 <label
                   htmlFor="article-file-upload"
-                  className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-xl cursor-pointer bg-white/50 dark:bg-zinc-900/50 transition-colors text-center"
+                  className={`flex flex-col items-center justify-center p-6 border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-xl cursor-pointer bg-white/50 dark:bg-zinc-900/50 transition-colors text-center ${
+                    isCompressing ? 'opacity-60 pointer-events-none' : ''
+                  }`}
                 >
-                  <Upload className="w-8 h-8 text-indigo-500 mb-2" />
-                  <span className="text-xs font-semibold text-zinc-900 dark:text-white">
-                    Click to browse and upload an image from your device
-                  </span>
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
-                    Supports PNG, JPG, WEBP, or GIF (auto-embedded)
-                  </span>
+                  {isCompressing ? (
+                    <>
+                      <Loader2 className="w-8 h-8 text-indigo-500 mb-2 animate-spin" />
+                      <span className="text-xs font-semibold text-zinc-900 dark:text-white">
+                        Optimizing image for fast publishing...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-indigo-500 mb-2" />
+                      <span className="text-xs font-semibold text-zinc-900 dark:text-white">
+                        Click to browse and upload an image from your device
+                      </span>
+                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
+                        Auto-compressed for instant loading (PNG, JPG, WEBP)
+                      </span>
+                    </>
+                  )}
                 </label>
               </div>
             )}
@@ -476,9 +535,19 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+              disabled={isSubmitting || isCompressing}
+              className={`px-6 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer inline-flex items-center gap-2 ${
+                isSubmitting || isCompressing ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
             >
-              Publish Article
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Publishing...</span>
+                </>
+              ) : (
+                <span>Publish Article</span>
+              )}
             </button>
           </div>
         </form>

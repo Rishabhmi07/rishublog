@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
-import { Search, Sun, Moon, PenSquare, Menu, X } from 'lucide-react';
+import { Search, Sun, Moon, PenSquare, Menu, X, UserCog, Inbox, Lock, ShieldCheck } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { AuthorProfile } from '../types/blog';
 
 interface NavbarProps {
   activeView: string;
   onNavigate: (view: string, targetId?: string) => void;
   onOpenSearch: () => void;
   onOpenNewArticle: () => void;
+  profile?: AuthorProfile;
+  onEditProfile?: () => void;
+  isAdminLoggedIn?: boolean;
+  unreadCount?: number;
+  onOpenInbox?: () => void;
+  onOpenAdminAuth?: () => void;
+  onLogoutAdmin?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -14,6 +22,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   onOpenSearch,
   onOpenNewArticle,
+  profile,
+  onEditProfile,
+  isAdminLoggedIn = false,
+  unreadCount = 0,
+  onOpenInbox,
+  onOpenAdminAuth,
+  onLogoutAdmin,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -31,16 +46,32 @@ export const Navbar: React.FC<NavbarProps> = ({
     setMobileMenuOpen(false);
   };
 
+  const firstName = profile?.name ? profile.name.split(' ')[0] : 'Rishu';
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Zone 1: Brand title wordmark */}
-        <button
-          onClick={() => handleNavClick('home')}
-          className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-heading hover:opacity-90 transition-opacity"
-        >
-          Rishu<span className="text-indigo-600 dark:text-indigo-400">.</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleNavClick('home')}
+            className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-heading hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            {firstName}<span className="text-indigo-600 dark:text-indigo-400">.</span>
+          </button>
+
+          {/* Admin badge if active */}
+          {isAdminLoggedIn && (
+            <button
+              onClick={onOpenAdminAuth}
+              title="Admin authenticated - Click to manage admin settings"
+              className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 shadow-2xs cursor-pointer hover:bg-emerald-100"
+            >
+              <ShieldCheck className="w-3 h-3 text-emerald-600" />
+              <span>Admin Active</span>
+            </button>
+          )}
+        </div>
 
         {/* Zone 2: Navigation Links (Desktop) */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-600 dark:text-zinc-400">
@@ -50,7 +81,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 key={link.id}
                 onClick={() => handleNavClick(link.id)}
-                className={`relative py-1 hover:text-zinc-900 dark:hover:text-white transition-colors ${
+                className={`relative py-1 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer ${
                   isActive ? 'text-indigo-600 dark:text-indigo-400 font-semibold' : ''
                 }`}
               >
@@ -64,11 +95,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* Zone 3: Actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Search Trigger */}
           <button
             onClick={onOpenSearch}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700 cursor-pointer"
             title="Search articles (Cmd+K)"
           >
             <Search className="w-4 h-4 text-zinc-400" />
@@ -82,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={toggleTheme}
             aria-label="Toggle dark/light mode"
-            className="p-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg transition-colors"
+            className="p-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg transition-colors cursor-pointer"
           >
             {theme === 'dark' ? (
               <Sun className="w-4 h-4 text-amber-400" />
@@ -91,10 +122,72 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
 
+          {/* Admin-Only Tools: Messages Inbox & Edit Profile (Hidden from regular visitors) */}
+          {isAdminLoggedIn ? (
+            <>
+              {/* Admin Messages Inbox */}
+              {onOpenInbox && (
+                <button
+                  onClick={onOpenInbox}
+                  title={
+                    unreadCount > 0
+                      ? `Admin Inbox (${unreadCount} unread message${unreadCount === 1 ? '' : 's'})`
+                      : 'Admin Messages Inbox'
+                  }
+                  className="relative p-2 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 rounded-lg transition-colors cursor-pointer"
+                  aria-label="Admin Messages Inbox"
+                >
+                  <Inbox className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow-xs animate-pulse">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* Edit Profile & Socials */}
+              {onEditProfile && (
+                <button
+                  onClick={onEditProfile}
+                  title="Edit developer profile, bio & socials"
+                  className="p-2 text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg transition-colors cursor-pointer"
+                  aria-label="Edit Profile"
+                >
+                  <UserCog className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* Quick Lock Admin button */}
+              {onLogoutAdmin && (
+                <button
+                  onClick={onLogoutAdmin}
+                  title="Lock Admin session"
+                  className="p-2 text-zinc-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                  aria-label="Lock Admin session"
+                >
+                  <Lock className="w-4 h-4" />
+                </button>
+              )}
+            </>
+          ) : (
+            /* For regular visitors: discreet lock trigger for Rishu to authenticate */
+            onOpenAdminAuth && (
+              <button
+                onClick={onOpenAdminAuth}
+                title="Author / Admin Portal"
+                className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+                aria-label="Admin Login"
+              >
+                <Lock className="w-3.5 h-3.5" />
+              </button>
+            )
+          )}
+
           {/* Write / New Article Button */}
           <button
             onClick={onOpenNewArticle}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-lg shadow-sm transition-all"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-lg shadow-sm transition-all cursor-pointer"
           >
             <PenSquare className="w-3.5 h-3.5" />
             <span>Write</span>
@@ -103,7 +196,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Mobile Menu Toggle */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-lg"
+            className="md:hidden p-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-lg cursor-pointer"
             aria-label="Open mobile menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -119,7 +212,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 key={link.id}
                 onClick={() => handleNavClick(link.id)}
-                className={`text-left px-3 py-2 text-sm rounded-lg font-medium transition-colors ${
+                className={`text-left px-3 py-2 text-sm rounded-lg font-medium transition-colors cursor-pointer ${
                   activeView === link.id
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
                     : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900'
@@ -130,13 +223,91 @@ export const Navbar: React.FC<NavbarProps> = ({
             ))}
           </div>
 
-          <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
+          <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2">
+            {isAdminLoggedIn ? (
+              <>
+                {onOpenInbox && (
+                  <button
+                    onClick={() => {
+                      onOpenInbox();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center justify-between px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Inbox className="w-4 h-4 text-indigo-500" />
+                      <span>Admin Message Inbox</span>
+                    </div>
+                    {unreadCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold">
+                        {unreadCount} NEW
+                      </span>
+                    )}
+                  </button>
+                )}
+
+                {onEditProfile && (
+                  <button
+                    onClick={() => {
+                      onEditProfile();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+                  >
+                    <UserCog className="w-4 h-4 text-indigo-500" />
+                    <span>Edit Profile & Socials</span>
+                  </button>
+                )}
+
+                {onLogoutAdmin && (
+                  <button
+                    onClick={() => {
+                      onLogoutAdmin();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-rose-600 dark:text-rose-400 cursor-pointer"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>Lock Admin Session</span>
+                  </button>
+                )}
+              </>
+            ) : (
+              onOpenAdminAuth && (
+                <button
+                  onClick={() => {
+                    onOpenAdminAuth();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
+                >
+                  <Lock className="w-4 h-4 text-zinc-400" />
+                  <span>Admin Login</span>
+                </button>
+              )
+            )}
+
+            <button
+              onClick={toggleTheme}
+              className="flex items-center justify-between px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                {theme === 'dark' ? (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <Moon className="w-4 h-4 text-zinc-700" />
+                )}
+                <span>Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode</span>
+              </div>
+              <span className="text-xs text-zinc-400 uppercase font-mono">{theme}</span>
+            </button>
+
             <button
               onClick={() => {
                 onOpenNewArticle();
                 setMobileMenuOpen(false);
               }}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 cursor-pointer"
             >
               <PenSquare className="w-4 h-4" />
               <span>Create New Article</span>
