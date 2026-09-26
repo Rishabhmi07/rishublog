@@ -1,0 +1,8 @@
+{
+  "name": "Rishu’s Tech Blog",
+  "description": "Documenting my journey through programming, AI/ML, web development, and technology. By Rishu Mishra, 3rd-year B.Tech CSE AI/ML student.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
