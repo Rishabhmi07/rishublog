@@ -112,6 +112,10 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
         alert('Please select a valid image file (JPG, PNG, WEBP).');
         return;
       }
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image file size exceeds 5MB. Please choose an image smaller than 5MB.');
+        return;
+      }
       setIsUploading(true);
       try {
         const compressed = await compressAvatar(file, 400, 0.85);
@@ -141,7 +145,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
   };
 
   const handleSavePhoto = () => {
-    const finalPhoto = tempPhotoUrl || DEFAULT_AUTHOR_PROFILE.avatar;
+    const finalPhoto = tempPhotoUrl || currentAvatar || DEFAULT_AUTHOR_PROFILE.avatar;
     if (onAvatarChange) {
       onAvatarChange(finalPhoto);
     }

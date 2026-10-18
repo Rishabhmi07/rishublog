@@ -241,6 +241,60 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {/* TAB 1: Profile & Bio */}
           {activeTab === 'profile' && (
             <div className="space-y-4 animate-in fade-in duration-100">
+              {/* Profile Avatar Editor */}
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60">
+                <img
+                  src={formData.avatar || DEFAULT_AUTHOR_PROFILE.avatar}
+                  alt={formData.name}
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.opacity = '0.5';
+                  }}
+                  className="w-16 h-16 rounded-2xl object-cover border-2 border-indigo-500/40 shadow-xs shrink-0 bg-zinc-900"
+                />
+                <div className="flex-1 space-y-1.5">
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    Profile Photo URL or Upload
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={formData.avatar}
+                      onChange={(e) => handleTextChange('avatar', e.target.value)}
+                      placeholder="https://... or upload image"
+                      className="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-mono"
+                    />
+                    <label className="cursor-pointer py-1.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1 shrink-0">
+                      <span>Upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert('Image exceeds 5MB limit.');
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              if (ev.target?.result) {
+                                handleTextChange('avatar', ev.target.result as string);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <p className="text-[10px] text-zinc-400">
+                    Updating your photo here updates the navigation bar, articles, about section, and footer instantly.
+                  </p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">

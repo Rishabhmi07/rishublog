@@ -6,13 +6,16 @@ interface FeaturedArticleProps {
   article: Article;
   onReadArticle: (article: Article) => void;
   onLikeArticle: (id: string, e: React.MouseEvent) => void;
+  authorAvatar?: string;
 }
 
 export const FeaturedArticle: React.FC<FeaturedArticleProps> = ({
   article,
   onReadArticle,
   onLikeArticle,
+  authorAvatar,
 }) => {
+  const displayAvatar = authorAvatar || article.author?.avatar;
   return (
     <section className="py-12 md:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -88,9 +91,12 @@ export const FeaturedArticle: React.FC<FeaturedArticleProps> = ({
               <div className="pt-8 mt-6 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <img
-                    src={article.author.avatar}
+                    src={displayAvatar}
                     alt={article.author.name}
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.opacity = '0.5';
+                    }}
                     className="w-10 h-10 rounded-full object-cover border border-zinc-200 dark:border-zinc-700"
                   />
                   <div>

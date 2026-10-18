@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, PenSquare, Filter, BookOpen } from 'lucide-react';
-import { Article } from '../types/blog';
+import { Article, CategoryItem } from '../types/blog';
 import { ArticleCard } from './ArticleCard';
 
 interface ArticleGridProps {
@@ -12,7 +12,12 @@ interface ArticleGridProps {
   bookmarks: string[];
   onToggleBookmark: (id: string, e: React.MouseEvent) => void;
   onDeleteArticle?: (id: string, e: React.MouseEvent) => void;
+  onEditArticle?: (article: Article) => void;
   onOpenNewArticle?: () => void;
+  isAdminLoggedIn?: boolean;
+  isLoading?: boolean;
+  categories?: CategoryItem[];
+  authorAvatar?: string;
 }
 
 export const ArticleGrid: React.FC<ArticleGridProps> = ({
@@ -24,19 +29,21 @@ export const ArticleGrid: React.FC<ArticleGridProps> = ({
   bookmarks,
   onToggleBookmark,
   onDeleteArticle,
+  onEditArticle,
   onOpenNewArticle,
+  isAdminLoggedIn = false,
+  isLoading = false,
+  categories = [],
+  authorAvatar,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'popular'>('newest');
 
-  const categories = [
+  const categoryList = [
     'All',
-    'AI & Machine Learning',
-    'Web Development',
-    'Programming',
-    'Java',
-    'Python',
-    'Projects',
+    ...(categories.length > 0
+      ? categories.map((c) => c.name)
+      : ['AI & Machine Learning', 'Web Development', 'Programming', 'Java', 'Python', 'Projects']),
   ];
 
   // Filter and sort articles
@@ -114,7 +121,7 @@ export const ArticleGrid: React.FC<ArticleGridProps> = ({
 
         {/* Interactive Filter Tabs (functional segmented buttons) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 scrollbar-none">
-          {categories.map((cat) => {
+          {categoryList.map((cat) => {
             const isActive = selectedCategory === cat;
             return (
               <button
@@ -132,8 +139,22 @@ export const ArticleGrid: React.FC<ArticleGridProps> = ({
           })}
         </div>
 
-        {/* Articles Grid or Clean Empty State */}
-        {articles.length === 0 ? (
+        {/* Loading Skeleton */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            {[1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-4 space-y-4 animate-pulse shadow-xs"
+              >
+                <div className="aspect-4/3 w-full bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
+                <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-1/3" />
+                <div className="h-6 bg-zinc-200 dark:bg-zinc-800 rounded-md w-3/4" />
+                <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-full" />
+              </div>
+            ))}
+          </div>
+        ) : articles.length === 0 ? (
           <div className="text-center py-20 px-4 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 shadow-xs">
             <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
               <BookOpen className="w-7 h-7" />
@@ -142,9 +163,11 @@ export const ArticleGrid: React.FC<ArticleGridProps> = ({
               No articles published yet
             </h3>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto mt-2 leading-relaxed">
-              Default articles have been cleared. You have a clean slate! Click below to publish your first tech article with code snippets and custom cover images.
+              {isAdminLoggedIn
+                ? 'Default articles have been cleared. You have a clean slate! Click below to publish your first tech article with code snippets and custom cover images.'
+                : 'Rishu is currently compiling technical deep dives, project logs, and tutorials. Check back soon for new publications!'}
             </p>
-            {onOpenNewArticle && (
+            {isAdminLoggedIn && onOpenNewArticle && (
               <button
                 onClick={onOpenNewArticle}
                 className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
@@ -164,7 +187,9 @@ export const ArticleGrid: React.FC<ArticleGridProps> = ({
                 onLikeArticle={onLikeArticle}
                 isBookmarked={bookmarks.includes(article.id)}
                 onToggleBookmark={onToggleBookmark}
-                onDeleteArticle={onDeleteArticle}
+                onDeleteArticle={isAdminLoggedIn ? onDeleteArticle : undefined}
+                onEditArticle={isAdminLoggedIn && onEditArticle ? (art, e) => { e.stopPropagation(); onEditArticle(art); } : undefined}
+                authorAvatar={authorAvatar}
               />
             ))}
           </div>

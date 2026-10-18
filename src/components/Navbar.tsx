@@ -55,9 +55,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleNavClick('home')}
-            className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-heading hover:opacity-90 transition-opacity cursor-pointer"
+            className="flex items-center gap-2 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-heading hover:opacity-90 transition-opacity cursor-pointer"
           >
-            {firstName}<span className="text-indigo-600 dark:text-indigo-400">.</span>
+            {profile?.avatar && (
+              <img
+                src={profile.avatar}
+                alt={profile.name}
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+                className="w-7 h-7 rounded-full object-cover border border-indigo-200 dark:border-indigo-800 shadow-2xs"
+              />
+            )}
+            <span>{firstName}<span className="text-indigo-600 dark:text-indigo-400">.</span></span>
           </button>
 
           {/* Admin badge if active */}
@@ -184,14 +195,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             )
           )}
 
-          {/* Write / New Article Button */}
-          <button
-            onClick={onOpenNewArticle}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-lg shadow-sm transition-all cursor-pointer"
-          >
-            <PenSquare className="w-3.5 h-3.5" />
-            <span>Write</span>
-          </button>
+          {/* Write / New Article Button - ONLY visible to Admin */}
+          {isAdminLoggedIn && (
+            <button
+              onClick={onOpenNewArticle}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-lg shadow-sm transition-all cursor-pointer"
+            >
+              <PenSquare className="w-3.5 h-3.5" />
+              <span>Write</span>
+            </button>
+          )}
 
           {/* Mobile Menu Toggle */}
           <button
@@ -302,16 +315,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="text-xs text-zinc-400 uppercase font-mono">{theme}</span>
             </button>
 
-            <button
-              onClick={() => {
-                onOpenNewArticle();
-                setMobileMenuOpen(false);
-              }}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 cursor-pointer"
-            >
-              <PenSquare className="w-4 h-4" />
-              <span>Create New Article</span>
-            </button>
+            {isAdminLoggedIn && (
+              <button
+                onClick={() => {
+                  onOpenNewArticle();
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 cursor-pointer"
+              >
+                <PenSquare className="w-4 h-4" />
+                <span>Create New Article</span>
+              </button>
+            )}
           </div>
         </div>
       )}

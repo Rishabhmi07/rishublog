@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight, Clock, Calendar, Heart, Bookmark, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Clock, Calendar, Heart, Bookmark, Trash2, Pencil } from 'lucide-react';
 import { Article } from '../types/blog';
 
 interface ArticleCardProps {
@@ -9,6 +9,8 @@ interface ArticleCardProps {
   isBookmarked: boolean;
   onToggleBookmark: (id: string, e: React.MouseEvent) => void;
   onDeleteArticle?: (id: string, e: React.MouseEvent) => void;
+  onEditArticle?: (article: Article, e: React.MouseEvent) => void;
+  authorAvatar?: string;
 }
 
 export const ArticleCard: React.FC<ArticleCardProps> = ({
@@ -18,7 +20,10 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
   isBookmarked,
   onToggleBookmark,
   onDeleteArticle,
+  onEditArticle,
+  authorAvatar,
 }) => {
+  const displayAvatar = authorAvatar || article.author?.avatar;
   return (
     <article
       onClick={() => onReadArticle(article)}
@@ -36,8 +41,21 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
           {/* Subtle gradient overlay */}
           <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
 
-          {/* Quick Action Buttons */}
+          {/* Quick Action Buttons (Edit & Delete only rendered if Admin is authenticated) */}
           <div className="absolute top-3 right-3 flex items-center gap-1.5">
+            {onEditArticle && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditArticle(article, e);
+                }}
+                title="Edit article"
+                className="p-2 rounded-lg bg-black/60 hover:bg-indigo-600/90 backdrop-blur-xs text-white transition-all active:scale-90 shadow-sm"
+              >
+                <Pencil className="w-3.5 h-3.5 text-white" />
+              </button>
+            )}
+
             {onDeleteArticle && (
               <button
                 onClick={(e) => {
@@ -47,11 +65,12 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
                   }
                 }}
                 title="Delete article"
-                className="p-2 rounded-lg bg-black/50 hover:bg-rose-600/90 backdrop-blur-xs text-white transition-all active:scale-90"
+                className="p-2 rounded-lg bg-black/60 hover:bg-rose-600/90 backdrop-blur-xs text-white transition-all active:scale-90 shadow-sm"
               >
                 <Trash2 className="w-3.5 h-3.5 text-white" />
               </button>
             )}
+
             <button
               onClick={(e) => onToggleBookmark(article.id, e)}
               title={isBookmarked ? 'Remove bookmark' : 'Bookmark article'}
@@ -66,7 +85,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
 
         {/* Content Body */}
         <div className="p-5 sm:p-6 space-y-3">
-          {/* Category & Date Metadata (Zero-pill discipline: quiet unboxed text) */}
+          {/* Category & Date Metadata */}
           <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
             <span className="font-semibold text-indigo-600 dark:text-indigo-400">
               {article.category}
@@ -76,54 +95,50 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
               <Calendar className="w-3 h-3 text-zinc-400" />
               {article.publishedDate}
             </span>
-            <span aria-hidden="true">·</span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-zinc-400" />
-              {article.readingTime}
-            </span>
           </div>
 
-          {/* Title */}
-          <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white font-heading group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2 leading-snug">
+          <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors font-heading line-clamp-2">
             {article.title}
           </h3>
 
-          {/* Short description */}
-          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 line-clamp-2 leading-relaxed">
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed line-clamp-3">
             {article.shortDescription}
           </p>
         </div>
       </div>
 
-      {/* Card Footer: Author + Read More */}
-      <div className="px-5 sm:px-6 pb-5 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <img
-            src={article.author.avatar}
-            alt={article.author.name}
-            referrerPolicy="no-referrer"
-            className="w-6 h-6 rounded-full object-cover border border-zinc-200 dark:border-zinc-700"
-          />
-          <span className="text-xs text-zinc-600 dark:text-zinc-400">
-            {article.author.name.split(' ')[0]}
+      {/* Card Footer */}
+      <div className="px-5 sm:px-6 pb-5 pt-3 border-t border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="flex items-center gap-2.5">
+          {displayAvatar && (
+            <img
+              src={displayAvatar}
+              alt={article.author?.name || 'Author'}
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+              className="w-5 h-5 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
+            />
+          )}
+          <span className="flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5 text-zinc-400" />
+            {article.readingTime || '5 min read'}
           </span>
-        </div>
-
-        <div className="flex items-center gap-3">
+          <span aria-hidden="true">·</span>
           <button
             onClick={(e) => onLikeArticle(article.id, e)}
-            className="flex items-center gap-1 text-xs text-zinc-400 hover:text-rose-500 transition-colors p-1"
-            title="Like article"
+            className="flex items-center gap-1 hover:text-rose-500 transition-colors"
           >
             <Heart className="w-3.5 h-3.5" />
-            <span className="font-mono tabular-nums text-xs">{article.likes}</span>
+            <span className="font-mono tabular-nums">{article.likes}</span>
           </button>
-
-          <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">
-            Read More
-            <ArrowUpRight className="w-3.5 h-3.5" />
-          </span>
         </div>
+
+        <span className="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">
+          <span>Read</span>
+          <ArrowUpRight className="w-3.5 h-3.5" />
+        </span>
       </div>
     </article>
   );

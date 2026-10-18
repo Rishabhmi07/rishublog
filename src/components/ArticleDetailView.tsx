@@ -13,6 +13,7 @@ import {
   Send,
   User,
   Trash2,
+  Pencil,
 } from 'lucide-react';
 import { Article, CommentItem } from '../types/blog';
 
@@ -25,6 +26,8 @@ interface ArticleDetailViewProps {
   relatedArticles: Article[];
   onSelectArticle: (article: Article) => void;
   onDelete?: (id: string) => void;
+  onEdit?: (article: Article) => void;
+  authorAvatar?: string;
 }
 
 export const ArticleDetailView: React.FC<ArticleDetailViewProps> = ({
@@ -36,7 +39,10 @@ export const ArticleDetailView: React.FC<ArticleDetailViewProps> = ({
   relatedArticles,
   onSelectArticle,
   onDelete,
+  onEdit,
+  authorAvatar,
 }) => {
+  const displayAvatar = authorAvatar || article.author?.avatar;
   const [scrollProgress, setScrollProgress] = useState(0);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -168,6 +174,17 @@ export const ArticleDetailView: React.FC<ArticleDetailViewProps> = ({
               )}
             </button>
 
+            {onEdit && (
+              <button
+                onClick={() => onEdit(article)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 font-semibold transition-colors shadow-2xs"
+                title="Edit article"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Edit Article</span>
+              </button>
+            )}
+
             {onDelete && (
               <button
                 onClick={() => {
@@ -217,10 +234,13 @@ export const ArticleDetailView: React.FC<ArticleDetailViewProps> = ({
           <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
-                src={article.author.avatar}
+                src={displayAvatar}
                 alt={article.author.name}
                 referrerPolicy="no-referrer"
-                className="w-11 h-11 rounded-full object-cover border border-zinc-200 dark:border-zinc-700"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.opacity = '0.5';
+                }}
+                className="w-11 h-11 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-2xs"
               />
               <div>
                 <span className="block text-sm font-semibold text-zinc-900 dark:text-white">

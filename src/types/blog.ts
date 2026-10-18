@@ -31,7 +31,7 @@ export interface Article {
   slug: string;
   title: string;
   shortDescription: string;
-  category: 'AI & Machine Learning' | 'Web Development' | 'Programming' | 'Java' | 'Python' | 'Projects';
+  category: string;
   coverImage: string;
   publishedDate: string;
   readingTime: string;
@@ -41,6 +41,7 @@ export interface Article {
     avatar: string;
   };
   featured?: boolean;
+  publishedStatus?: 'published' | 'draft';
   tags: string[];
   likes: number;
   content: {
@@ -65,8 +66,11 @@ export interface CategoryItem {
   name: string;
   slug: string;
   description: string;
-  articleCount: number;
-  iconName: string;
+  articleCount?: number;
+  iconName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  authorEmail?: string;
 }
 
 export interface CommentItem {

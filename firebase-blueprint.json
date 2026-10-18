@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "Article": {
+      "title": "Article",
+      "description": "Technical blog articles published by Rishu Mishra",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "slug": { "type": "string", "maxLength": 200 },
+        "title": { "type": "string", "maxLength": 300 },
+        "shortDescription": { "type": "string", "maxLength": 1000 },
+        "content": { "type": "object" },
+        "category": { "type": "string", "maxLength": 100 },
+        "readTime": { "type": "string", "maxLength": 50 },
+        "readingTime": { "type": "string", "maxLength": 50 },
+        "publishedDate": { "type": "string", "maxLength": 50 },
+        "publishedStatus": { "type": "string", "maxLength": 50 },
+        "coverImage": { "type": "string", "maxLength": 2000000 },
+        "likes": { "type": "number" },
+        "featured": { "type": "boolean" },
+        "authorEmail": { "type": "string", "maxLength": 150 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "title", "content", "category", "authorEmail"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Blog categories managed exclusively by Rishu Mishra",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "slug": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 500 },
+        "iconName": { "type": "string", "maxLength": 60 },
+        "authorEmail": { "type": "string", "maxLength": 150 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "name", "slug"]
+    },
+    "ContactMessage": {
+      "title": "ContactMessage",
+      "description": "Messages sent by visitors to the blog author",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "subject": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 5000 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "read": { "type": "boolean" }
+      },
+      "required": ["id", "name", "email", "message"]
+    },
+    "AuthorProfile": {
+      "title": "AuthorProfile",
+      "description": "Public author profile and biography",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "maxLength": 150 },
+        "avatar": { "type": "string", "maxLength": 2000000 },
+        "location": { "type": "string", "maxLength": 150 },
+        "shortBio": { "type": "string", "maxLength": 500 },
+        "heading": { "type": "string", "maxLength": 200 },
+        "authorEmail": { "type": "string", "maxLength": 150 }
+      },
+      "required": ["name", "role", "authorEmail"]
+    }
+  },
+  "firestore": {
+    "/articles/{articleId}": {
+      "schema": "Article",
+      "description": "Published articles readable by all visitors, editable only by Rishu"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Blog categories readable by all visitors, managed only by Rishu"
+    },
+    "/messages/{messageId}": {
+      "schema": "ContactMessage",
+      "description": "Private contact messages sent by visitors, readable only by Rishu"
+    },
+    "/profile/{profileId}": {
+      "schema": "AuthorProfile",
+      "description": "Author profile information editable only by Rishu"
+    }
+  }
+}

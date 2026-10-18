@@ -1,6 +1,18 @@
-import React, { useState, useRef } from 'react';
-import { X, Sparkles, Image as ImageIcon, Upload, Link, Check, Trash2, Loader2 } from 'lucide-react';
-import { Article } from '../types/blog';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  X,
+  Sparkles,
+  Image as ImageIcon,
+  Upload,
+  Link,
+  Check,
+  Trash2,
+  Loader2,
+  Pencil,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react';
+import { Article, CategoryItem } from '../types/blog';
 import { AUTHOR_RISHU, PRESET_COVER_IMAGES } from '../data/articles';
 
 // Client-side lightweight image compressor to keep uploads snappy and within browser storage limits
@@ -37,16 +49,21 @@ function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promise<str
 interface NewArticleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPublish: (newArticle: Article) => void;
+  onPublish: (article: Article) => Promise<void> | void;
+  articleToEdit?: Article | null;
+  categories?: CategoryItem[];
 }
 
 export const NewArticleModal: React.FC<NewArticleModalProps> = ({
   isOpen,
   onClose,
   onPublish,
+  articleToEdit = null,
+  categories = [],
 }) => {
+  const defaultCategory = categories[0]?.name || 'AI & Machine Learning';
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<Article['category']>('AI & Machine Learning');
+  const [category, setCategory] = useState<string>(defaultCategory);
   const [shortDescription, setShortDescription] = useState('');
   const [readingTime, setReadingTime] = useState('5 min read');
   
@@ -58,6 +75,8 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
   const [isFeatured, setIsFeatured] = useState<boolean>(false);
   const [isCompressing, setIsCompressing] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
 
   // Content state
   const [intro, setIntro] = useState('');
@@ -68,6 +87,40 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
   const [tags, setTags] = useState('AI, Machine Learning, Python');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Synchronize form when articleToEdit changes or modal opens
+  useEffect(() => {
+    if (articleToEdit) {
+      setTitle(articleToEdit.title || '');
+      setCategory(articleToEdit.category || defaultCategory);
+      setShortDescription(articleToEdit.shortDescription || '');
+      setReadingTime(articleToEdit.readingTime || '5 min read');
+      setCoverImage(articleToEdit.coverImage || '');
+      setImageFileName(articleToEdit.coverImage ? 'Current Cover Image' : '');
+      setIsFeatured(Boolean(articleToEdit.featured));
+      setIntro(articleToEdit.content?.intro || '');
+      setSectionHeading(articleToEdit.content?.sections?.[0]?.heading || '1. Core Implementation');
+      setSectionText(articleToEdit.content?.sections?.[0]?.text || '');
+      setCodeSnippet(articleToEdit.content?.sections?.[0]?.code?.snippet || '');
+      setCodeLang(articleToEdit.content?.sections?.[0]?.code?.language || 'python');
+      setTags(Array.isArray(articleToEdit.tags) ? articleToEdit.tags.join(', ') : '');
+    } else {
+      setTitle('');
+      setCategory(defaultCategory);
+      setShortDescription('');
+      setReadingTime('5 min read');
+      setCoverImage('');
+      setImageFileName('');
+      setImageUrlInput('');
+      setIsFeatured(false);
+      setIntro('');
+      setSectionHeading('1. Core Implementation');
+      setSectionText('');
+      setCodeSnippet('');
+      setCodeLang('python');
+      setTags('AI, Machine Learning, Python');
+    }
+  }, [articleToEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -120,38 +173,45 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !shortDescription.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
+    setPublishError(null);
+    setPublishSuccess(null);
 
     // Fallback image if user didn't select one
     const finalImage = coverImage.trim() || PRESET_COVER_IMAGES[0].url;
 
-    const newArticle: Article = {
-      id: `art-${Date.now()}`,
-      slug: title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, ''),
+    const finalArticle: Article = {
+      id: articleToEdit ? articleToEdit.id : `art-${Date.now()}`,
+      slug: articleToEdit
+        ? articleToEdit.slug
+        : title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)+/g, ''),
       title: title.trim(),
       shortDescription: shortDescription.trim(),
       category,
       coverImage: finalImage,
-      publishedDate: new Date().toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      }),
+      publishedDate: articleToEdit
+        ? articleToEdit.publishedDate
+        : new Date().toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+      publishedStatus: 'published',
       readingTime: readingTime.trim() || '4 min read',
       featured: isFeatured,
-      author: AUTHOR_RISHU,
+      author: articleToEdit?.author || AUTHOR_RISHU,
       tags: tags
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
-      likes: 1,
+      likes: articleToEdit ? articleToEdit.likes : 0,
       content: {
         intro: intro.trim() || shortDescription.trim(),
         sections: [
@@ -167,13 +227,29 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
           },
         ],
         conclusion:
+          articleToEdit?.content?.conclusion ||
           'Thanks for reading! Check back regularly for updates or drop a comment below with your feedback.',
       },
     };
 
-    onPublish(newArticle);
-    setIsSubmitting(false);
-    onClose();
+    try {
+      await onPublish(finalArticle);
+      setPublishSuccess(
+        articleToEdit
+          ? 'Article changes saved to Cloud Firestore!'
+          : 'Article successfully published and saved to Cloud Firestore!'
+      );
+      setTimeout(() => {
+        setIsSubmitting(false);
+        onClose();
+      }, 1000);
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setPublishError(
+        err?.message ||
+          'Failed to persist article to Firestore. Please verify you are logged in as admin.'
+      );
+    }
   };
 
   return (
@@ -185,18 +261,40 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-500" />
+            {articleToEdit ? (
+              <Pencil className="w-5 h-5 text-indigo-500" />
+            ) : (
+              <Sparkles className="w-5 h-5 text-indigo-500" />
+            )}
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white font-heading">
-              Write New Article
+              {articleToEdit ? 'Edit Article' : 'Write New Article'}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Error or Success notification */}
+        {publishError && (
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-600 dark:text-rose-400 flex items-start gap-2 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Persistence Error</p>
+              <p>{publishError}</p>
+            </div>
+          </div>
+        )}
+
+        {publishSuccess && (
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span className="font-semibold">{publishSuccess}</span>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[82vh] overflow-y-auto">
@@ -223,15 +321,25 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
                 </label>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as Article['category'])}
+                  onChange={(e) => setCategory(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:outline-hidden focus:border-indigo-500"
                 >
-                  <option value="AI & Machine Learning">AI & Machine Learning</option>
-                  <option value="Web Development">Web Development</option>
-                  <option value="Programming">Programming</option>
-                  <option value="Java">Java</option>
-                  <option value="Python">Python</option>
-                  <option value="Projects">Projects</option>
+                  {categories.length > 0 ? (
+                    categories.map((cat) => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="AI & Machine Learning">AI & Machine Learning</option>
+                      <option value="Web Development">Web Development</option>
+                      <option value="Programming">Programming</option>
+                      <option value="Java">Java</option>
+                      <option value="Python">Python</option>
+                      <option value="Projects">Projects</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -543,10 +651,10 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Publishing...</span>
+                  <span>{articleToEdit ? 'Saving...' : 'Publishing...'}</span>
                 </>
               ) : (
-                <span>Publish Article</span>
+                <span>{articleToEdit ? 'Save Changes' : 'Publish Article'}</span>
               )}
             </button>
           </div>
