@@ -79,13 +79,8 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
   const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
 
-  // Content state
-  const [intro, setIntro] = useState('');
-  const [sectionHeading, setSectionHeading] = useState('1. Core Implementation');
-  const [sectionText, setSectionText] = useState('');
-  const [codeSnippet, setCodeSnippet] = useState('');
-  const [codeLang, setCodeLang] = useState('python');
-  const [tags, setTags] = useState('AI, Machine Learning, Python');
+  // Content state (single clean article body)
+  const [contentBody, setContentBody] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -99,12 +94,12 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
       setCoverImage(articleToEdit.coverImage || '');
       setImageFileName(articleToEdit.coverImage ? 'Current Cover Image' : '');
       setIsFeatured(Boolean(articleToEdit.featured));
-      setIntro(articleToEdit.content?.intro || '');
-      setSectionHeading(articleToEdit.content?.sections?.[0]?.heading || '1. Core Implementation');
-      setSectionText(articleToEdit.content?.sections?.[0]?.text || '');
-      setCodeSnippet(articleToEdit.content?.sections?.[0]?.code?.snippet || '');
-      setCodeLang(articleToEdit.content?.sections?.[0]?.code?.language || 'python');
-      setTags(Array.isArray(articleToEdit.tags) ? articleToEdit.tags.join(', ') : '');
+      setContentBody(
+        articleToEdit.content?.intro ||
+          articleToEdit.content?.sections?.map((s) => s.text).join('\n\n') ||
+          articleToEdit.shortDescription ||
+          ''
+      );
     } else {
       setTitle('');
       setCategory(defaultCategory);
@@ -114,12 +109,7 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
       setImageFileName('');
       setImageUrlInput('');
       setIsFeatured(false);
-      setIntro('');
-      setSectionHeading('1. Core Implementation');
-      setSectionText('');
-      setCodeSnippet('');
-      setCodeLang('python');
-      setTags('AI, Machine Learning, Python');
+      setContentBody('');
     }
   }, [articleToEdit, isOpen]);
 
@@ -213,27 +203,14 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
       readingTime: readingTime.trim() || '4 min read',
       featured: isFeatured,
       author: articleToEdit?.author || AUTHOR_RISHU,
-      tags: tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
+      tags:
+        articleToEdit?.tags && articleToEdit.tags.length > 0
+          ? articleToEdit.tags
+          : [category, 'Tech'],
       likes: articleToEdit ? articleToEdit.likes : 0,
       content: {
-        intro: intro.trim() || shortDescription.trim(),
-        sections: [
-          {
-            heading: sectionHeading.trim() || '1. Overview & Setup',
-            text: sectionText.trim() || shortDescription.trim(),
-            ...(codeSnippet.trim()
-              ? {
-                  code: {
-                    language: codeLang.trim() || 'text',
-                    snippet: codeSnippet.trim(),
-                  },
-                }
-              : {}),
-          },
-        ],
+        intro: contentBody.trim() || shortDescription.trim(),
+        sections: articleToEdit?.content?.sections || [],
         conclusion:
           articleToEdit?.content?.conclusion ||
           'Thanks for reading! Check back regularly for updates or drop a comment below with your feedback.',
@@ -583,64 +560,15 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                Introduction Paragraph
+                Article Content / Body *
               </label>
               <textarea
-                rows={3}
-                placeholder="Hook the reader: Why does this concept or project matter?"
-                value={intro}
-                onChange={(e) => setIntro(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:outline-hidden focus:border-indigo-500 resize-none"
-              />
-            </div>
-
-            <div className="space-y-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
-              <span className="text-xs font-bold text-zinc-900 dark:text-white block">
-                Primary Section & Code Example
-              </span>
-              <input
-                type="text"
-                placeholder="Section Heading (e.g. 1. Architectural Blueprint)"
-                value={sectionHeading}
-                onChange={(e) => setSectionHeading(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white"
-              />
-              <textarea
-                rows={3}
-                placeholder="Detailed explanations, formulas, or concepts..."
-                value={sectionText}
-                onChange={(e) => setSectionText(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white resize-none"
-              />
-              <div className="flex gap-2 items-center">
-                <span className="text-xs text-zinc-500">Language:</span>
-                <input
-                  type="text"
-                  placeholder="python / c / javascript / java"
-                  value={codeLang}
-                  onChange={(e) => setCodeLang(e.target.value)}
-                  className="w-36 px-2.5 py-1 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white"
-                />
-              </div>
-              <textarea
-                rows={5}
-                placeholder="// Paste code snippet here..."
-                value={codeSnippet}
-                onChange={(e) => setCodeSnippet(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs font-mono bg-zinc-950 text-zinc-200 rounded-xl border border-zinc-800 focus:outline-hidden"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                Tags (comma separated)
-              </label>
-              <input
-                type="text"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                placeholder="AI, Machine Learning, Python, Neural Networks"
-                className="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white"
+                rows={6}
+                required
+                placeholder="Write your article content, tutorials, notes, or explanations here..."
+                value={contentBody}
+                onChange={(e) => setContentBody(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:outline-hidden focus:border-indigo-500 resize-y leading-relaxed"
               />
             </div>
           </div>
