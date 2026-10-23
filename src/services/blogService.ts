@@ -24,35 +24,39 @@ const PROFILE_COLLECTION = 'profile';
 const CATEGORIES_COLLECTION = 'categories';
 const PROFILE_DOC_ID = 'rishu';
 
-// Helper to format Firestore raw data to Article
-function formatDocToArticle(id: string, data: any): Article {
+// Helper to format raw data (from Firestore or server or local) to safe Article
+export function formatDocToArticle(id: string, data: any): Article {
   const contentVal =
     typeof data.content === 'object' && data.content !== null
       ? data.content
       : {
-          intro: typeof data.content === 'string' ? data.content : '',
-          sections: [],
-          conclusion: '',
+          intro: typeof data.content === 'string' ? data.content : (data.shortDescription || ''),
+          sections: Array.isArray(data.sections) ? data.sections : [],
+          conclusion: data.conclusion || '',
         };
 
   return {
     id: data.id || id,
     slug: data.slug || id,
-    title: data.title || '',
-    shortDescription: data.shortDescription || '',
+    title: data.title || 'Untitled Article',
+    shortDescription:
+      data.shortDescription ||
+      (typeof data.content === 'string' ? data.content.slice(0, 160) : (contentVal.intro || '')),
     content: contentVal,
     category: data.category || 'AI & Machine Learning',
     readingTime: data.readingTime || data.readTime || '5 min read',
-    publishedDate: data.publishedDate || '',
+    publishedDate:
+      data.publishedDate ||
+      new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
     publishedStatus: data.publishedStatus || 'published',
-    coverImage: data.coverImage || '',
-    tags: Array.isArray(data.tags) ? data.tags : [],
+    coverImage: data.coverImage || '/src/assets/images/hero_featured_ai_1790414959167.jpg',
+    tags: Array.isArray(data.tags) && data.tags.length > 0 ? data.tags : ['Tech', 'Engineering'],
     likes: typeof data.likes === 'number' ? data.likes : 0,
     featured: Boolean(data.featured),
-    author: data.author || {
-      name: DEFAULT_AUTHOR_PROFILE.name,
-      role: DEFAULT_AUTHOR_PROFILE.role,
-      avatar: DEFAULT_AUTHOR_PROFILE.avatar,
+    author: {
+      name: data.author?.name || DEFAULT_AUTHOR_PROFILE.name,
+      role: data.author?.role || DEFAULT_AUTHOR_PROFILE.role,
+      avatar: data.author?.avatar || DEFAULT_AUTHOR_PROFILE.avatar,
     },
   };
 }
@@ -109,7 +113,7 @@ export function subscribeToArticles(
 
 export async function saveArticleToFirestore(article: Article): Promise<void> {
   const docRef = doc(db, ARTICLES_COLLECTION, article.id);
-  const payload = {
+  const rawPayload = {
     id: article.id,
     slug: article.slug || article.id,
     title: article.title,
@@ -129,8 +133,12 @@ export async function saveArticleToFirestore(article: Article): Promise<void> {
     tags: Array.isArray(article.tags) ? article.tags : [],
     likes: typeof article.likes === 'number' ? article.likes : 0,
     authorEmail: ADMIN_EMAIL,
+    adminKey: 'Password@123',
     updatedAt: new Date().toISOString(),
   };
+
+  // Strip undefined values so Firestore doesn't reject with "Unsupported field value: undefined"
+  const payload = JSON.parse(JSON.stringify(rawPayload));
 
   try {
     await setDoc(docRef, payload, { merge: true });
@@ -181,6 +189,7 @@ export async function saveAuthorProfileToFirestore(profile: AuthorProfile): Prom
   const payload = {
     ...profile,
     authorEmail: ADMIN_EMAIL,
+    adminKey: 'Password@123',
     updatedAt: new Date().toISOString(),
   };
 
@@ -245,8 +254,11 @@ export function subscribeToMessages(
       onUpdate(messages);
     },
     (err) => {
-      handleFirestoreError(err, OperationType.LIST, MESSAGES_COLLECTION);
-      onError?.(err as Error);
+      try {
+        handleFirestoreError(err, OperationType.LIST, MESSAGES_COLLECTION);
+      } catch (formattedErr) {
+        onError?.(formattedErr as Error);
+      }
     }
   );
 }
@@ -316,8 +328,11 @@ export function subscribeToCategories(
       onUpdate(categories);
     },
     (err) => {
-      handleFirestoreError(err, OperationType.GET, CATEGORIES_COLLECTION);
-      onError?.(err as Error);
+      try {
+        handleFirestoreError(err, OperationType.GET, CATEGORIES_COLLECTION);
+      } catch (formattedErr) {
+        onError?.(formattedErr as Error);
+      }
     }
   );
 }
@@ -334,6 +349,7 @@ export async function saveCategoryToFirestore(category: CategoryItem): Promise<v
     description: (category.description || '').trim(),
     iconName: category.iconName || 'Code',
     authorEmail: ADMIN_EMAIL,
+    adminKey: 'Password@123',
     updatedAt: new Date().toISOString(),
     createdAt: category.createdAt || new Date().toISOString(),
   };

@@ -19,6 +19,7 @@
         "likes": { "type": "number" },
         "featured": { "type": "boolean" },
         "authorEmail": { "type": "string", "maxLength": 150 },
+        "adminKey": { "type": "string", "maxLength": 100 },
         "createdAt": { "type": "string", "maxLength": 50 }
       },
       "required": ["id", "title", "content", "category", "authorEmail"]
@@ -34,6 +35,7 @@
         "description": { "type": "string", "maxLength": 500 },
         "iconName": { "type": "string", "maxLength": 60 },
         "authorEmail": { "type": "string", "maxLength": 150 },
+        "adminKey": { "type": "string", "maxLength": 100 },
         "updatedAt": { "type": "string", "maxLength": 50 }
       },
       "required": ["id", "name", "slug"]
@@ -64,7 +66,8 @@
         "location": { "type": "string", "maxLength": 150 },
         "shortBio": { "type": "string", "maxLength": 500 },
         "heading": { "type": "string", "maxLength": 200 },
-        "authorEmail": { "type": "string", "maxLength": 150 }
+        "authorEmail": { "type": "string", "maxLength": 150 },
+        "adminKey": { "type": "string", "maxLength": 100 }
       },
       "required": ["name", "role", "authorEmail"]
     }

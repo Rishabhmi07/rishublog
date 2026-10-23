@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Lock,
@@ -49,6 +49,9 @@ interface AdminAuthModalProps {
   onAddCategory?: (category: CategoryItem) => Promise<void>;
   onRenameCategory?: (categoryId: string, oldName: string, updatedCategory: CategoryItem) => Promise<void>;
   onDeleteCategory?: (categoryId: string, oldName: string, replacementName: string) => Promise<void>;
+  initialTab?: 'credentials' | 'categories';
+  categoryToEdit?: CategoryItem | null;
+  openAddCategory?: boolean;
 }
 
 const AVAILABLE_ICONS = [
@@ -78,9 +81,12 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
   onAddCategory,
   onRenameCategory,
   onDeleteCategory,
+  initialTab = 'credentials',
+  categoryToEdit = null,
+  openAddCategory = false,
 }) => {
   // Navigation tab inside admin panel
-  const [adminActiveTab, setAdminActiveTab] = useState<'credentials' | 'categories'>('credentials');
+  const [adminActiveTab, setAdminActiveTab] = useState<'credentials' | 'categories'>(initialTab);
 
   const [authMethod, setAuthMethod] = useState<'google' | 'credentials'>('google');
   const [usernameInput, setUsernameInput] = useState('');
@@ -114,6 +120,28 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
   // Category Deletion Safety Dialog State
   const [deletingCategory, setDeletingCategory] = useState<CategoryItem | null>(null);
   const [replacementCategoryId, setReplacementCategoryId] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialTab) {
+        setAdminActiveTab(initialTab);
+      }
+      if (categoryToEdit) {
+        setAdminActiveTab('categories');
+        setEditingCategory(categoryToEdit);
+        setEditName(categoryToEdit.name);
+        setEditDesc(categoryToEdit.description || '');
+        setEditIcon(categoryToEdit.iconName || 'Code');
+        setIsAddingCategory(false);
+        setDeletingCategory(null);
+      } else if (openAddCategory) {
+        setAdminActiveTab('categories');
+        setIsAddingCategory(true);
+        setEditingCategory(null);
+        setDeletingCategory(null);
+      }
+    }
+  }, [isOpen, initialTab, categoryToEdit, openAddCategory]);
 
   if (!isOpen) return null;
 
@@ -503,7 +531,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
               </div>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {onOpenNewArticle && (
                   <button
                     type="button"
@@ -530,6 +558,63 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
                     <span>View Inbox</span>
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminActiveTab('categories');
+                    setErrorMsg('');
+                  }}
+                  className="py-2.5 px-3 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800/80 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <Tags className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span>Categories ({categories.length})</span>
+                </button>
+              </div>
+
+              {/* Dedicated Category Management Quick Access Card */}
+              <div className="p-4 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/60 bg-indigo-50/40 dark:bg-indigo-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Tags className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <h4 className="text-xs font-bold text-zinc-900 dark:text-white font-heading">
+                      Category & Taxonomy Management
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-[10px] font-mono font-semibold">
+                      {categories.length} active
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                    Add new categories, rename topics with automatic article sync, or delete categories safely.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminActiveTab('categories');
+                      setIsAddingCategory(true);
+                      setEditingCategory(null);
+                      setDeletingCategory(null);
+                    }}
+                    className="py-1.5 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 rounded-xl transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Add New</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminActiveTab('categories');
+                      setIsAddingCategory(false);
+                      setEditingCategory(null);
+                      setDeletingCategory(null);
+                    }}
+                    className="py-1.5 px-3 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Tags className="w-3.5 h-3.5" />
+                    <span>Manage</span>
+                  </button>
+                </div>
               </div>
 
               {/* CHANGE CREDENTIALS FORM */}

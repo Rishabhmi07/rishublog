@@ -38,6 +38,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   // Form states
   const [formData, setFormData] = useState<AuthorProfile>(() => JSON.parse(JSON.stringify(profile)));
   const [isSavedNotice, setIsSavedNotice] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -273,8 +274,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
+                            setAvatarError(null);
+                            if (!file.type.startsWith('image/')) {
+                              setAvatarError('Please select a valid image file (PNG, JPG, WEBP).');
+                              return;
+                            }
                             if (file.size > 5 * 1024 * 1024) {
-                              alert('Image exceeds 5MB limit.');
+                              setAvatarError('Image file size exceeds 5MB limit.');
                               return;
                             }
                             const reader = new FileReader();
@@ -289,6 +295,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       />
                     </label>
                   </div>
+                  {avatarError && (
+                    <p className="text-[11px] text-rose-500 font-medium">
+                      {avatarError}
+                    </p>
+                  )}
                   <p className="text-[10px] text-zinc-400">
                     Updating your photo here updates the navigation bar, articles, about section, and footer instantly.
                   </p>

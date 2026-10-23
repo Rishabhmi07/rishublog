@@ -77,6 +77,7 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   // Content state
   const [intro, setIntro] = useState('');
@@ -128,8 +129,13 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setImageError(null);
       if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file (PNG, JPG, WEBP).');
+        setImageError('Please select a valid image file (PNG, JPG, WEBP).');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setImageError('Image file size exceeds 5MB limit.');
         return;
       }
       setImageFileName(file.name);
@@ -218,12 +224,14 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
           {
             heading: sectionHeading.trim() || '1. Overview & Setup',
             text: sectionText.trim() || shortDescription.trim(),
-            code: codeSnippet.trim()
+            ...(codeSnippet.trim()
               ? {
-                  language: codeLang.trim() || 'text',
-                  snippet: codeSnippet.trim(),
+                  code: {
+                    language: codeLang.trim() || 'text',
+                    snippet: codeSnippet.trim(),
+                  },
                 }
-              : undefined,
+              : {}),
           },
         ],
         conclusion:
@@ -482,6 +490,11 @@ export const NewArticleModal: React.FC<NewArticleModalProps> = ({
                     </>
                   )}
                 </label>
+                {imageError && (
+                  <p className="text-[11px] text-rose-500 font-medium pt-1">
+                    {imageError}
+                  </p>
+                )}
               </div>
             )}
 

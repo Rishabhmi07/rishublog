@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sun, Moon, PenSquare, Menu, X, UserCog, Inbox, Lock, ShieldCheck } from 'lucide-react';
+import { Search, Sun, Moon, PenSquare, Menu, X, ShieldCheck } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { AuthorProfile } from '../types/blog';
 
@@ -15,6 +15,7 @@ interface NavbarProps {
   onOpenInbox?: () => void;
   onOpenAdminAuth?: () => void;
   onLogoutAdmin?: () => void;
+  onOpenCategories?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -29,6 +30,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenInbox,
   onOpenAdminAuth,
   onLogoutAdmin,
+  onOpenCategories,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -133,68 +135,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
 
-          {/* Admin-Only Tools: Messages Inbox & Edit Profile (Hidden from regular visitors) */}
-          {isAdminLoggedIn ? (
-            <>
-              {/* Admin Messages Inbox */}
-              {onOpenInbox && (
-                <button
-                  onClick={onOpenInbox}
-                  title={
-                    unreadCount > 0
-                      ? `Admin Inbox (${unreadCount} unread message${unreadCount === 1 ? '' : 's'})`
-                      : 'Admin Messages Inbox'
-                  }
-                  className="relative p-2 text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 rounded-lg transition-colors cursor-pointer"
-                  aria-label="Admin Messages Inbox"
-                >
-                  <Inbox className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow-xs animate-pulse">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-              )}
-
-              {/* Edit Profile & Socials */}
-              {onEditProfile && (
-                <button
-                  onClick={onEditProfile}
-                  title="Edit developer profile, bio & socials"
-                  className="p-2 text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg transition-colors cursor-pointer"
-                  aria-label="Edit Profile"
-                >
-                  <UserCog className="w-4 h-4" />
-                </button>
-              )}
-
-              {/* Quick Lock Admin button */}
-              {onLogoutAdmin && (
-                <button
-                  onClick={onLogoutAdmin}
-                  title="Lock Admin session"
-                  className="p-2 text-zinc-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
-                  aria-label="Lock Admin session"
-                >
-                  <Lock className="w-4 h-4" />
-                </button>
-              )}
-            </>
-          ) : (
-            /* For regular visitors: discreet lock trigger for Rishu to authenticate */
-            onOpenAdminAuth && (
-              <button
-                onClick={onOpenAdminAuth}
-                title="Author / Admin Portal"
-                className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors cursor-pointer"
-                aria-label="Admin Login"
-              >
-                <Lock className="w-3.5 h-3.5" />
-              </button>
-            )
-          )}
-
           {/* Write / New Article Button - ONLY visible to Admin */}
           {isAdminLoggedIn && (
             <button
@@ -237,69 +177,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2">
-            {isAdminLoggedIn ? (
-              <>
-                {onOpenInbox && (
-                  <button
-                    onClick={() => {
-                      onOpenInbox();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="flex items-center justify-between px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Inbox className="w-4 h-4 text-indigo-500" />
-                      <span>Admin Message Inbox</span>
-                    </div>
-                    {unreadCount > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold">
-                        {unreadCount} NEW
-                      </span>
-                    )}
-                  </button>
-                )}
-
-                {onEditProfile && (
-                  <button
-                    onClick={() => {
-                      onEditProfile();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
-                  >
-                    <UserCog className="w-4 h-4 text-indigo-500" />
-                    <span>Edit Profile & Socials</span>
-                  </button>
-                )}
-
-                {onLogoutAdmin && (
-                  <button
-                    onClick={() => {
-                      onLogoutAdmin();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-rose-600 dark:text-rose-400 cursor-pointer"
-                  >
-                    <Lock className="w-4 h-4" />
-                    <span>Lock Admin Session</span>
-                  </button>
-                )}
-              </>
-            ) : (
-              onOpenAdminAuth && (
-                <button
-                  onClick={() => {
-                    onOpenAdminAuth();
-                    setMobileMenuOpen(false);
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
-                >
-                  <Lock className="w-4 h-4 text-zinc-400" />
-                  <span>Admin Login</span>
-                </button>
-              )
-            )}
-
             <button
               onClick={toggleTheme}
               className="flex items-center justify-between px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg cursor-pointer"

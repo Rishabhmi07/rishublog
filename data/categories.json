@@ -1,0 +1,46 @@
+[
+  {
+    "id": "web-dev",
+    "name": "Web Development",
+    "slug": "web-dev",
+    "description": "Modern JavaScript runtime, React patterns, full-stack architectures, and performance optimization.",
+    "iconName": "Globe"
+  },
+  {
+    "id": "programming",
+    "name": "Programming",
+    "slug": "programming",
+    "description": "Core computer science fundamentals, memory management, pointers, and data structures in C.",
+    "iconName": "Terminal"
+  },
+  {
+    "id": "java",
+    "name": "Java",
+    "slug": "java",
+    "description": "Object-oriented programming, packages, access specifiers, and JVM architecture essentials.",
+    "iconName": "Layers"
+  },
+  {
+    "id": "python",
+    "name": "Python",
+    "slug": "python",
+    "description": "NumPy vectorization, Pandas data wrangling, tensor mathematics, and ML scripting.",
+    "iconName": "Code"
+  },
+  {
+    "id": "projects",
+    "name": "Projects",
+    "slug": "projects",
+    "description": "End-to-end applications, real-world case studies, and hands-on B.Tech semester builds.",
+    "iconName": "FolderGit2"
+  },
+  {
+    "id": "ai-ml",
+    "name": "AI & Machine Learning",
+    "slug": "ai-ml",
+    "description": "Neural networks, PyTorch fundamentals, computer vision, and modern predictive models.",
+    "iconName": "Cpu",
+    "createdAt": "2026-10-19T13:28:21.187Z",
+    "updatedAt": "2026-10-19T13:28:21.187Z"
+  }
+]

@@ -79,6 +79,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
   const [urlInput, setUrlInput] = useState<string>('');
   const [isSavedNotice, setIsSavedNotice] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   // Edit details modal state
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -94,6 +95,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
     }
     setTempPhotoUrl(currentAvatar);
     setUrlInput('');
+    setPhotoError(null);
     setIsPhotoModalOpen(true);
   };
 
@@ -108,12 +110,13 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setPhotoError(null);
       if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file (JPG, PNG, WEBP).');
+        setPhotoError('Please select a valid image file (JPG, PNG, WEBP).');
         return;
       }
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image file size exceeds 5MB. Please choose an image smaller than 5MB.');
+        setPhotoError('Image file size exceeds 5MB. Please choose an image smaller than 5MB.');
         return;
       }
       setIsUploading(true);
@@ -541,6 +544,13 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                   <span>Image URL</span>
                 </button>
               </div>
+
+              {/* Error Notice */}
+              {photoError && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300">
+                  {photoError}
+                </div>
+              )}
 
               {/* Option 1: File Upload */}
               {photoInputMode === 'upload' && (

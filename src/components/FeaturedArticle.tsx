@@ -79,7 +79,7 @@ export const FeaturedArticle: React.FC<FeaturedArticleProps> = ({
 
                 {/* Tags (subtle quiet inline text) */}
                 <div className="flex flex-wrap items-center gap-2 pt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  {article.tags.slice(0, 3).map((tag) => (
+                  {(Array.isArray(article.tags) ? article.tags : []).slice(0, 3).map((tag) => (
                     <span key={tag} className="hover:text-indigo-500 transition-colors">
                       #{tag}
                     </span>
@@ -92,7 +92,7 @@ export const FeaturedArticle: React.FC<FeaturedArticleProps> = ({
                 <div className="flex items-center gap-3">
                   <img
                     src={displayAvatar}
-                    alt={article.author.name}
+                    alt={article.author?.name || 'Author'}
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       (e.target as HTMLElement).style.opacity = '0.5';
@@ -101,10 +101,10 @@ export const FeaturedArticle: React.FC<FeaturedArticleProps> = ({
                   />
                   <div>
                     <span className="block text-xs font-semibold text-zinc-900 dark:text-white">
-                      {article.author.name}
+                      {article.author?.name || 'Rishu Mishra'}
                     </span>
                     <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {article.author.role}
+                      {article.author?.role || 'Author'}
                     </span>
                   </div>
                 </div>

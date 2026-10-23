@@ -49,12 +49,16 @@ export const ArticleGrid: React.FC<ArticleGridProps> = ({
   // Filter and sort articles
   const filteredArticles = articles
     .filter((art) => {
+      if (!art) return false;
+      const cat = art.category || 'All';
       const matchCategory =
-        selectedCategory === 'All' || art.category.toLowerCase() === selectedCategory.toLowerCase();
+        selectedCategory === 'All' || cat.toLowerCase() === selectedCategory.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
       const matchSearch =
-        art.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        art.shortDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        art.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+        !q ||
+        (art.title || '').toLowerCase().includes(q) ||
+        (art.shortDescription || '').toLowerCase().includes(q) ||
+        (Array.isArray(art.tags) ? art.tags : []).some((t) => (t || '').toLowerCase().includes(q));
       return matchCategory && matchSearch;
     })
     .sort((a, b) => {

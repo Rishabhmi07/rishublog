@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { Navbar } from './components/Navbar';
-import { Hero } from './components/Hero';
 import { FeaturedArticle } from './components/FeaturedArticle';
 import { ArticleGrid } from './components/ArticleGrid';
 import { CategoriesSection } from './components/CategoriesSection';
@@ -42,8 +41,10 @@ import {
   renameCategoryInFirestore,
   deleteCategoryWithReassignment,
   seedInitialCategoriesIfEmpty,
+  formatDocToArticle,
   updateArticlesAuthorAvatarInFirestore,
 } from './services/blogService';
+import { PRESET_COVER_IMAGES } from './data/articles';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -77,9 +78,7 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter(
-            (a) => !['art-1', 'art-2', 'art-3', 'art-4', 'art-5', 'art-6'].includes(a.id)
-          );
+          return parsed.map((a: any) => formatDocToArticle(a.id, a));
         }
       }
     } catch {}
@@ -147,6 +146,9 @@ export default function App() {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState<boolean>(false);
   const [isInboxOpen, setIsInboxOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalTab, setAuthModalTab] = useState<'credentials' | 'categories'>('credentials');
+  const [categoryToEditInModal, setCategoryToEditInModal] = useState<CategoryItem | null>(null);
+  const [openAddCategoryInModal, setOpenAddCategoryInModal] = useState<boolean>(false);
 
   const unreadMessagesCount = messages.filter((m) => !m.read).length;
 
@@ -158,54 +160,112 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Load articles from Firestore & sync in real-time (Permanent cloud persistence across refreshes!)
+  // 2. Load articles from Firestore & Server in parallel and sync in real-time
   useEffect(() => {
     let isMounted = true;
 
-    // A. Direct one-time fetch on load
-    getArticlesFromFirestore()
-      .then((cloudArticles) => {
+    // Helper to merge two article lists, deduplicating by ID and sorting newest first
+    const mergeArticles = (listA: Article[], listB: Article[]): Article[] => {
+      const map = new Map<string, Article>();
+      listB.forEach((item) => {
+        if (item && item.id) map.set(item.id, item);
+      });
+      listA.forEach((item) => {
+        if (item && item.id) map.set(item.id, item);
+      });
+      return Array.from(map.values()).sort((a, b) => {
+        const dateA = new Date(a.publishedDate).getTime() || 0;
+        const dateB = new Date(b.publishedDate).getTime() || 0;
+        return dateB - dateA;
+      });
+    };
+
+    // A. Parallel fetch from both Firestore and Server so all visitors see every published article
+    Promise.allSettled([
+      getArticlesFromFirestore(),
+      fetch('/api/articles')
+        .then((r) => r.json())
+        .then((d) =>
+          Array.isArray(d?.articles)
+            ? d.articles.map((a: any) => formatDocToArticle(a.id, a))
+            : []
+        )
+        .catch(() => [] as Article[]),
+    ])
+      .then(([firestoreRes, serverRes]) => {
         if (!isMounted) return;
-        if (cloudArticles && cloudArticles.length > 0) {
-          setArticles(cloudArticles);
+        const firestoreList: Article[] =
+          firestoreRes.status === 'fulfilled' && Array.isArray(firestoreRes.value)
+            ? firestoreRes.value.map((a) => formatDocToArticle(a.id, a))
+            : [];
+        const serverList: Article[] =
+          serverRes.status === 'fulfilled' && Array.isArray(serverRes.value)
+            ? serverRes.value.map((a) => formatDocToArticle(a.id, a))
+            : [];
+
+        const combined = mergeArticles(firestoreList, serverList);
+        if (combined.length > 0) {
+          setArticles(combined);
           try {
-            localStorage.setItem('rishu_articles', JSON.stringify(cloudArticles));
+            localStorage.setItem('rishu_articles', JSON.stringify(combined));
           } catch {}
-          setIsLoadingArticles(false);
-        } else {
-          // Check backend server fallback
-          fetch('/api/articles')
-            .then((res) => res.json())
-            .then((data) => {
-              if (isMounted && data?.articles && Array.isArray(data.articles) && data.articles.length > 0) {
-                setArticles(data.articles);
-                try {
-                  localStorage.setItem('rishu_articles', JSON.stringify(data.articles));
-                } catch {}
-              }
-            })
-            .catch(() => {})
-            .finally(() => {
-              if (isMounted) setIsLoadingArticles(false);
-            });
         }
+        setIsLoadingArticles(false);
+
+        // Bi-directional Auto-Sync:
+        // 1. If articles exist in Firestore but are missing from server, push to server
+        if (firestoreList.length > 0) {
+          firestoreList.forEach((fArt) => {
+            if (!serverList.some((s) => s.id === fArt.id)) {
+              fetch('/api/articles', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-admin-password': 'Password@123',
+                },
+                body: JSON.stringify({ article: fArt }),
+              }).catch(() => {});
+            }
+          });
+        }
+
+        // 2. If articles exist on server but are missing from Firestore, push to Firestore
+        if (serverList.length > 0) {
+          serverList.forEach((sArt) => {
+            if (!firestoreList.some((f) => f.id === sArt.id)) {
+              saveArticleToFirestore(sArt).catch(() => {});
+            }
+          });
+        }
+
+        // 3. If articles are saved in local browser, sync them to both
+        try {
+          const savedLocal = localStorage.getItem('rishu_articles');
+          if (savedLocal) {
+            const parsed = JSON.parse(savedLocal);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              parsed.forEach((localArt: Article) => {
+                const formatted = formatDocToArticle(localArt.id, localArt);
+                if (!serverList.some((s) => s.id === formatted.id)) {
+                  fetch('/api/articles', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'x-admin-password': 'Password@123',
+                    },
+                    body: JSON.stringify({ article: formatted }),
+                  }).catch(() => {});
+                }
+                if (!firestoreList.some((f) => f.id === formatted.id)) {
+                  saveArticleToFirestore(formatted).catch(() => {});
+                }
+              });
+            }
+          }
+        } catch {}
       })
       .catch(() => {
-        if (!isMounted) return;
-        fetch('/api/articles')
-          .then((res) => res.json())
-          .then((data) => {
-            if (isMounted && data?.articles && Array.isArray(data.articles) && data.articles.length > 0) {
-              setArticles(data.articles);
-              try {
-                localStorage.setItem('rishu_articles', JSON.stringify(data.articles));
-              } catch {}
-            }
-          })
-          .catch(() => {})
-          .finally(() => {
-            if (isMounted) setIsLoadingArticles(false);
-          });
+        if (isMounted) setIsLoadingArticles(false);
       });
 
     // B. Real-time listener for Firestore articles
@@ -213,10 +273,14 @@ export default function App() {
       (firestoreArticles) => {
         if (!isMounted) return;
         if (firestoreArticles && firestoreArticles.length > 0) {
-          setArticles(firestoreArticles);
-          try {
-            localStorage.setItem('rishu_articles', JSON.stringify(firestoreArticles));
-          } catch {}
+          const formatted = firestoreArticles.map((a) => formatDocToArticle(a.id, a));
+          setArticles((prev) => {
+            const updated = mergeArticles(formatted, prev);
+            try {
+              localStorage.setItem('rishu_articles', JSON.stringify(updated));
+            } catch {}
+            return updated;
+          });
         }
         setIsLoadingArticles(false);
       },
@@ -304,7 +368,7 @@ export default function App() {
 
   // 3. Messages listener for Admin
   useEffect(() => {
-    if (isAdminLoggedIn) {
+    if (isUserAdmin(currentUser)) {
       const unsubscribe = subscribeToMessages(
         (updatedMessages) => {
           setMessages(updatedMessages);
@@ -313,12 +377,28 @@ export default function App() {
           } catch {}
         },
         (err) => {
-          console.warn('Messages listener error:', err);
+          console.warn('Messages Firestore listener notice:', err);
         }
       );
       return () => unsubscribe();
+    } else if (isAdminLoggedIn) {
+      // Backend API fallback for password-based admin login
+      const headers: Record<string, string> = {};
+      if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
+      else headers['x-admin-password'] = 'Password@123';
+      fetch('/api/messages', { headers })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.messages && Array.isArray(data.messages)) {
+            setMessages(data.messages);
+            try {
+              localStorage.setItem('rishu_contact_messages', JSON.stringify(data.messages));
+            } catch {}
+          }
+        })
+        .catch(() => {});
     }
-  }, [isAdminLoggedIn]);
+  }, [isAdminLoggedIn, currentUser, adminToken]);
 
   const handleAdminLoginSuccess = (token?: string, username?: string) => {
     if (token) {
@@ -377,6 +457,28 @@ export default function App() {
     } else {
       setIsAuthModalOpen(true);
     }
+  };
+
+  // Safe handlers to manage categories
+  const handleOpenCategoriesManager = () => {
+    setAuthModalTab('categories');
+    setCategoryToEditInModal(null);
+    setOpenAddCategoryInModal(false);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleOpenAddCategoryModal = () => {
+    setAuthModalTab('categories');
+    setCategoryToEditInModal(null);
+    setOpenAddCategoryInModal(true);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleOpenEditCategoryModal = (cat: CategoryItem) => {
+    setAuthModalTab('categories');
+    setCategoryToEditInModal(cat);
+    setOpenAddCategoryInModal(false);
+    setIsAuthModalOpen(true);
   };
 
   // Handler for editing existing article (Admin only)
@@ -702,57 +804,67 @@ export default function App() {
       throw new Error('Admin authentication required.');
     }
 
+    const finalCover = articleToSave.coverImage || PRESET_COVER_IMAGES[0].url;
+    const finalTags =
+      Array.isArray(articleToSave.tags) && articleToSave.tags.length > 0
+        ? articleToSave.tags
+        : ['Tech', 'Engineering'];
+
     const articleWithAuthor: Article = {
       ...articleToSave,
       publishedStatus: 'published',
+      coverImage: finalCover,
+      tags: finalTags,
       author: {
-        name: profile.name,
-        role: profile.role,
-        avatar: profile.avatar,
+        name: profile.name || DEFAULT_AUTHOR_PROFILE.name,
+        role: profile.role || DEFAULT_AUTHOR_PROFILE.role,
+        avatar: profile.avatar || DEFAULT_AUTHOR_PROFILE.avatar,
       },
     };
 
-    // 1. Direct write to Firestore
-    let firestoreSuccess = false;
+    const formattedArticle = formatDocToArticle(articleWithAuthor.id, articleWithAuthor);
+
+    // 1. Direct write to Cloud Firestore
     try {
-      await saveArticleToFirestore(articleWithAuthor);
-      firestoreSuccess = true;
+      await saveArticleToFirestore(formattedArticle);
     } catch (err: any) {
-      console.warn('Firestore write warning:', err);
+      console.warn('Firestore write notice:', err);
     }
 
     // 2. Backup write to backend server
     try {
-      const isEdit = articles.some((a) => a.id === articleWithAuthor.id);
-      const endpoint = isEdit ? `/api/articles/${articleWithAuthor.id}` : '/api/articles';
+      const isEdit = articles.some((a) => a.id === formattedArticle.id);
+      const endpoint = isEdit ? `/api/articles/${formattedArticle.id}` : '/api/articles';
       const method = isEdit ? 'PUT' : 'POST';
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-admin-password': 'Password@123',
+      };
       if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
-      else headers['x-admin-password'] = 'Password@123';
 
       await fetch(endpoint, {
         method,
         headers,
-        body: JSON.stringify({ article: articleWithAuthor }),
+        body: JSON.stringify({ article: formattedArticle }),
       });
     } catch (serverErr) {
       console.warn('Backend server backup write warning:', serverErr);
     }
 
-    // 3. Update React state & local storage
+    // 3. Update React state & local storage immediately
     setArticles((prev) => {
-      const isEdit = prev.some((a) => a.id === articleWithAuthor.id);
+      const isEdit = prev.some((a) => a.id === formattedArticle.id);
       const updated = isEdit
-        ? prev.map((a) => (a.id === articleWithAuthor.id ? articleWithAuthor : a))
-        : [articleWithAuthor, ...prev];
+        ? prev.map((a) => (a.id === formattedArticle.id ? formattedArticle : a))
+        : [formattedArticle, ...prev];
       try {
         localStorage.setItem('rishu_articles', JSON.stringify(updated));
       } catch {}
       return updated;
     });
 
-    if (selectedArticle && selectedArticle.id === articleWithAuthor.id) {
-      setSelectedArticle(articleWithAuthor);
+    if (selectedArticle && selectedArticle.id === formattedArticle.id) {
+      setSelectedArticle(formattedArticle);
     }
 
     setArticleToEdit(null);
@@ -774,9 +886,10 @@ export default function App() {
 
     // Delete from backend server
     try {
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = {
+        'x-admin-password': 'Password@123',
+      };
       if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
-      else headers['x-admin-password'] = 'Password@123';
       await fetch(`/api/articles/${id}`, {
         method: 'DELETE',
         headers,
@@ -865,8 +978,8 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Compute category counts
-  const categoriesWithCounts: CategoryItem[] = INITIAL_CATEGORIES.map((cat) => ({
+  // Compute category counts dynamically from active categories state
+  const categoriesWithCounts: CategoryItem[] = categories.map((cat) => ({
     ...cat,
     articleCount: articles.filter((a) => a.category === cat.name).length,
   }));
@@ -880,7 +993,7 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white transition-colors duration-200 relative overflow-x-hidden">
         {/* Navigation Bar */}
         <Navbar
           activeView={activeView}
@@ -892,8 +1005,14 @@ export default function App() {
           isAdminLoggedIn={isAdminLoggedIn}
           unreadCount={unreadMessagesCount}
           onOpenInbox={handleOpenInboxSafe}
-          onOpenAdminAuth={() => setIsAuthModalOpen(true)}
+          onOpenAdminAuth={() => {
+            setAuthModalTab('credentials');
+            setCategoryToEditInModal(null);
+            setOpenAddCategoryInModal(false);
+            setIsAuthModalOpen(true);
+          }}
           onLogoutAdmin={handleLogoutAdmin}
+          onOpenCategories={handleOpenCategoriesManager}
         />
 
         {/* Main Content Areas */}
@@ -916,6 +1035,7 @@ export default function App() {
               }}
               onDelete={isAdminLoggedIn ? handleDeleteArticle : undefined}
               onEdit={isAdminLoggedIn ? handleEditArticle : undefined}
+              authorAvatar={profile.avatar}
             />
           ) : (
             /* Views depending on route */
@@ -923,19 +1043,6 @@ export default function App() {
               {/* Home View */}
               {activeView === 'home' && (
                 <>
-                  <Hero
-                    articleCount={articles.length}
-                    profile={profile}
-                    onExploreArticles={() => {
-                      const el = document.getElementById('articles-section');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    onAboutMe={() => {
-                      const el = document.getElementById('about-section');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                  />
-
                   {/* Featured Article Section (only if articles exist) */}
                   {featuredArticle && (
                     <FeaturedArticle
@@ -945,6 +1052,7 @@ export default function App() {
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       onLikeArticle={handleLikeArticle}
+                      authorAvatar={profile.avatar}
                     />
                   )}
 
@@ -964,6 +1072,8 @@ export default function App() {
                     onOpenNewArticle={isAdminLoggedIn ? () => { setArticleToEdit(null); setIsNewArticleOpen(true); } : undefined}
                     isAdminLoggedIn={isAdminLoggedIn}
                     isLoading={isLoadingArticles}
+                    categories={categories}
+                    authorAvatar={profile.avatar}
                   />
 
                   <CategoriesSection
@@ -973,6 +1083,10 @@ export default function App() {
                       setActiveView('articles');
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
+                    isAdminLoggedIn={isAdminLoggedIn}
+                    onOpenAdminCategories={handleOpenCategoriesManager}
+                    onAddCategory={handleOpenAddCategoryModal}
+                    onEditCategory={handleOpenEditCategoryModal}
                   />
 
                   <AboutSection
@@ -1017,6 +1131,8 @@ export default function App() {
                     onOpenNewArticle={isAdminLoggedIn ? () => { setArticleToEdit(null); setIsNewArticleOpen(true); } : undefined}
                     isAdminLoggedIn={isAdminLoggedIn}
                     isLoading={isLoadingArticles}
+                    categories={categories}
+                    authorAvatar={profile.avatar}
                   />
                 </div>
               )}
@@ -1031,6 +1147,10 @@ export default function App() {
                       setActiveView('articles');
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
+                    isAdminLoggedIn={isAdminLoggedIn}
+                    onOpenAdminCategories={handleOpenCategoriesManager}
+                    onAddCategory={handleOpenAddCategoryModal}
+                    onEditCategory={handleOpenEditCategoryModal}
                   />
                 </div>
               )}
@@ -1077,7 +1197,15 @@ export default function App() {
           unreadCount={unreadMessagesCount}
           onOpenInbox={handleOpenInboxSafe}
           isAdminLoggedIn={isAdminLoggedIn}
-          onOpenAdminAuth={() => setIsAuthModalOpen(true)}
+          onOpenAdminAuth={() => {
+            setAuthModalTab('credentials');
+            setCategoryToEditInModal(null);
+            setOpenAddCategoryInModal(false);
+            setIsAuthModalOpen(true);
+          }}
+          onOpenCategories={handleOpenCategoriesManager}
+          onLogoutAdmin={handleLogoutAdmin}
+          onOpenNewArticle={handleOpenNewArticleSafe}
         />
 
         {/* Modals */}
@@ -1101,6 +1229,7 @@ export default function App() {
             }}
             onPublish={handlePublishArticle}
             articleToEdit={articleToEdit}
+            categories={categories}
           />
         )}
 
@@ -1132,7 +1261,11 @@ export default function App() {
         {/* Admin Authentication & Credentials Modal */}
         <AdminAuthModal
           isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
+          onClose={() => {
+            setIsAuthModalOpen(false);
+            setCategoryToEditInModal(null);
+            setOpenAddCategoryInModal(false);
+          }}
           onSuccess={handleAdminLoginSuccess}
           isLoggedIn={isAdminLoggedIn}
           onLogout={handleLogoutAdmin}
@@ -1144,6 +1277,14 @@ export default function App() {
           currentUser={currentUser}
           adminUsername={adminUsername}
           adminToken={adminToken}
+          categories={categories}
+          articles={articles}
+          onAddCategory={handleAddCategory}
+          onRenameCategory={handleRenameCategory}
+          onDeleteCategory={handleDeleteCategory}
+          initialTab={authModalTab}
+          categoryToEdit={categoryToEditInModal}
+          openAddCategory={openAddCategoryInModal}
         />
       </div>
     </ThemeProvider>
